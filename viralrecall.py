@@ -47,7 +47,10 @@ def main(argv=None):
 	contiglevel = args_parser.contiglevel
 	flanking = args_parser.flanking
 	batch = args_parser.batch
-
+	
+	# Base dir to establish path of viralrecall.py file
+	base_dir = Path(__file__).parent.resolve()
+	print(base_dir)
 	project = project.rstrip("/")
 	if batch:
 		if os.path.isdir(project):
@@ -58,22 +61,35 @@ def main(argv=None):
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
 
-		if os.path.isdir(project):
-			pass
-		else:
-			os.mkdir(project)
+		# if os.path.isdir(project):
+		# 	pass
+		# else:
+		# 	os.mkdir(project)
 			
 		file_list = os.listdir(input)
 		for i in file_list:
-			#if i.endswith(".fna"):
-			#name = re.sub(".fna", "", i)
-			newproject = os.path.join(project, i)
+			# Remove suffix before creating directory
+			dir_name = Path(i)
+			dir_name = dir_name.with_suffix('')
+			print(dir_name)
+			newproject = os.path.join(project, dir_name)
+			if os.path.isdir(newproject):
+				pass
+			else:
+				os.mkdir(newproject)
 			#newproject = os.path.splitext(newproject)[0]
 			newinput = os.path.join(input, i)
 			print("Running viralrecall on "+ i + " and output will be deposited in "+ newproject)
 			#run_program(newinput, newproject, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 	else:
-		summary_file = 1
+		#summary_file = 1
+		# creates folder wherever you want now
+		if os.path.isdir(project):
+			pass
+		else:
+			os.mkdir(project)
+		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
+		summary_file.write("genome\tcontigs_tested\n")
 		#run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
