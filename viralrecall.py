@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys, os, re, shlex, subprocess, pandas, numpy, itertools, argparse, time
 from collections import defaultdict
-#from Bio import SeqIO
+from Bio import SeqIO
 from operator import itemgetter
 from itertools import islice
 #import matplotlib
@@ -9,6 +9,16 @@ from itertools import islice
 #import matplotlib.pyplot as plt
 import math
 from pathlib import Path
+import pyrodigal_gv
+
+
+def check_fasta(input):
+	file = list(SeqIO.parse(input, "fasta"))
+	print(file[0].id)
+
+
+def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
+	check_fasta(input)
 
 
 
@@ -90,7 +100,8 @@ def main(argv=None):
 			os.mkdir(project)
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
-		#run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
+		
+		run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
 
