@@ -11,15 +11,33 @@ import math
 from pathlib import Path
 import pyrodigal_gv
 
+def is_fasta(input):
+	"""
+	Checks if a file is in FASTA format.
+	"""
+	seqdict = SeqIO.to_dict(SeqIO.parse(input, "fasta"))
+	print(input[1])
+	if len(seqdict) < 1:
+		#print(input +" does not appear to be in FASTA format! Quitting")
+		quit()
+# def check_fasta(input):
+# 	file = list(SeqIO.parse(input, "fasta"))
+	
 
-def check_fasta(input):
-	file = list(SeqIO.parse(input, "fasta"))
-	print(file[0].id)
+def filt_contigs(input, phagesize) :
+	seq_file = SeqIO.parse(input, "fasta")
+	contig_len = int(phagesize)
+	filt_seqs = (record for record in seq_file if len(record.seq) > contig_len)
+	print(filt_seqs)
+	return filt_seqs
+
 
 
 def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
-	check_fasta(input)
-
+	with open(input) as handle:
+		is_fasta(handle)
+		is_fasta(filt_contigs(handle))
+		
 
 
 def main(argv=None):
@@ -60,7 +78,7 @@ def main(argv=None):
 	
 	# Base dir to establish path of viralrecall.py file
 	base_dir = Path(__file__).parent.resolve()
-	print(base_dir)
+	#print(base_dir)
 	project = project.rstrip("/")
 	if batch:
 		if os.path.isdir(project):
