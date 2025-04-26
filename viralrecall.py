@@ -15,20 +15,24 @@ def is_fasta(input):
 	"""
 	Checks if a file is in FASTA format.
 	"""
-	seqdict = SeqIO.to_dict(SeqIO.parse(input, "fasta"))
-	print(input[1])
+	seqdict = SeqIO.to_dict(SeqIO.parse(input, "fasta"))\
+		#print(input.name)
 	if len(seqdict) < 1:
-		#print(input +" does not appear to be in FASTA format! Quitting")
+		print(input.name +" does not appear to be in FASTA format! Quitting")
 		quit()
-# def check_fasta(input):
-# 	file = list(SeqIO.parse(input, "fasta"))
+
 	
 
 def filt_contigs(input, phagesize) :
 	seq_file = SeqIO.parse(input, "fasta")
 	contig_len = int(phagesize)
-	filt_seqs = (record for record in seq_file if len(record.seq) > contig_len)
-	print(filt_seqs)
+	filt_seqs = [record for record in seq_file if len(record.seq) > contig_len]
+	print(seq_file.record)
+	filtered = SeqIO.to_dict(filt_seqs)
+	if len(filt_seqs) < 1:
+		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
+	
+	print(filtered)
 	return filt_seqs
 
 
@@ -36,8 +40,7 @@ def filt_contigs(input, phagesize) :
 def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
 	with open(input) as handle:
 		is_fasta(handle)
-		is_fasta(filt_contigs(handle))
-		
+		filt_contigs(handle, phagesize)
 
 
 def main(argv=None):
