@@ -15,32 +15,57 @@ def is_fasta(input):
 	"""
 	Checks if a file is in FASTA format.
 	"""
-	seqdict = SeqIO.to_dict(SeqIO.parse(input, "fasta"))\
-		#print(input.name)
+	seqdict = SeqIO.index(input, "fasta")
 	if len(seqdict) < 1:
-		print(input.name +" does not appear to be in FASTA format! Quitting")
+		print(input +" does not appear to be in FASTA format! Quitting")
 		quit()
 
-	
+valid_bases = set('ATCGN')
+def is_DNA(input):
+	sequence = list(SeqIO.parse(input, "fasta"))
+	sequence = sequence[0].seq
+	sequence = sequence.upper()
+	#print(sequence[0].seq.upper())
+	print(set(sequence))
+	#Let's check the validity of the  DNA sequence
+	if not set(sequence).issubset(valid_bases):
+		print("Input Sequence contains non-DNA letters. Are you sure input is DNA sequence?")
 
 def filt_contigs(input, phagesize) :
 	seq_file = SeqIO.parse(input, "fasta")
 	contig_len = int(phagesize)
-	filt_seqs = [record for record in seq_file if len(record.seq) > contig_len]
-	print(seq_file.record)
+	filt_seqs = (record for record in seq_file if len(record.seq) > contig_len)
 	filtered = SeqIO.to_dict(filt_seqs)
-	if len(filt_seqs) < 1:
+	if len(filtered) < 1:
 		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
 	
-	print(filtered)
-	return filt_seqs
+	#print(list(filtered.keys()))
+	return list(filtered.keys())
 
+def predict_proteins(input, contigs, project, phagesize):
+	record = SeqIO.parse(input, "fasta")
+	contig_list = contigs
+	filt_seqs = [record for record in record if record.id in contig_list]
+	print(filt_seqs)
+	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
+	for n in filt_seqs:
+		for i, pred in enumerate(orf_finder.find_genes(bytes(n.seq))):
+			print(f">{n.id}_{i+1}")
+			print(pred.translate())
+	
 
 
 def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
-	with open(input) as handle:
-		is_fasta(handle)
-		filt_contigs(handle, phagesize)
+	# with open(input) as handle:
+	# 	is_fasta(handle)
+	# 	filt_contigs(handle, phagesize)
+	is_fasta(input)
+	is_DNA(input)
+	filt_contig_list = filt_contigs(input, phagesize)
+	predict_proteins(input, filt_contig_list, project, phagesize)
+	
+
+
 
 
 def main(argv=None):
@@ -121,7 +146,7 @@ def main(argv=None):
 			os.mkdir(project)
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
-		
+	
 		run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
