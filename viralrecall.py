@@ -10,6 +10,9 @@ from itertools import islice
 import math
 from pathlib import Path
 import pyrodigal_gv
+import pyhmmer
+import multiprocessing.pool
+
 
 def is_fasta(input):
 	"""
@@ -38,20 +41,36 @@ def filt_contigs(input, phagesize) :
 	filtered = SeqIO.to_dict(filt_seqs)
 	if len(filtered) < 1:
 		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
-	
 	#print(list(filtered.keys()))
 	return list(filtered.keys())
 
-def predict_proteins(input, contigs, project, phagesize):
+def predict_proteins(input, contigs, project, cpus):
 	record = SeqIO.parse(input, "fasta")
 	contig_list = contigs
+	threads = int(cpus)
+	outfile = project + "/" + project + ".faa"
 	filt_seqs = [record for record in record if record.id in contig_list]
 	print(filt_seqs)
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
-	for n in filt_seqs:
-		for i, pred in enumerate(orf_finder.find_genes(bytes(n.seq))):
-			print(f">{n.id}_{i+1}")
-			print(pred.translate())
+	with (
+            multiprocessing.pool.Pool(threads) as pool,
+            open(outfile, "w") as fout,
+        ):
+            for seq_i, (seq_acc, predicted_genes) in enumerate(
+                pool.imap((contigs, orf_finder), filt_seqs), 1
+            ):
+                for gene_i, gene in enumerate(predicted_genes, 1):
+                    header = (
+                        f"{seq_acc}_{gene_i} # {gene.begin} # {gene.end} # "
+                        + f"{gene.strand} # ID={seq_i}_{gene_i};"
+                        + f"partial={int(gene.partial_begin)}{int(gene.partial_end)};"
+                        + f"start_type={gene.start_type};rbs_motif={gene.rbs_motif};"
+                        + f"rbs_spacer={gene.rbs_spacer};"
+                        + f"genetic_code={gene.translation_table};"
+                        + f"gc_cont={gene.gc_cont:.3f}"
+                    )
+                    gene = filt_seqs.Sequence(header, gene.translate(include_stop=False))
+                    fout.write(str(gene))
 	
 
 
@@ -62,7 +81,7 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	is_fasta(input)
 	is_DNA(input)
 	filt_contig_list = filt_contigs(input, phagesize)
-	predict_proteins(input, filt_contig_list, project, phagesize)
+	predict_proteins(input, filt_contig_list, project, cpus)
 	
 
 
