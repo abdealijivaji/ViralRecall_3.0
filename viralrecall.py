@@ -29,20 +29,19 @@ def is_DNA(input):
 	sequence = sequence[0].seq
 	sequence = sequence.upper()
 	#print(sequence[0].seq.upper())
-	print(set(sequence))
+	#print(set(sequence))
 	#Let's check the validity of the  DNA sequence
 	if not set(sequence).issubset(valid_bases):
 		print("Input Sequence contains non-DNA letters. Are you sure input is DNA sequence?")
 
-def filt_contigs(input, phagesize) :
+def filt_contigs(input, phagesize) -> list :
 	seq_file = SeqIO.parse(input, "fasta")
 	contig_len = int(phagesize)
-	filt_seqs = (record for record in seq_file if len(record.seq) > contig_len)
-	filtered = SeqIO.to_dict(filt_seqs)
-	if len(filtered) < 1:
+	filt_seqs = [record.id for record in seq_file if len(record.seq) > contig_len]	
+	#print(filt_seqs)
+	if len(filt_seqs) < 1:
 		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
-	#print(list(filtered.keys()))
-	return list(filtered.keys())
+	return filt_seqs
 
 def predict_proteins(input, contigs, project, cpus):
 	record = SeqIO.parse(input, "fasta")
@@ -50,27 +49,14 @@ def predict_proteins(input, contigs, project, cpus):
 	threads = int(cpus)
 	outfile = project + "/" + project + ".faa"
 	filt_seqs = [record for record in record if record.id in contig_list]
-	print(filt_seqs)
+	#print(filt_seqs)
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
-	with (
-            multiprocessing.pool.Pool(threads) as pool,
-            open(outfile, "w") as fout,
-        ):
-            for seq_i, (seq_acc, predicted_genes) in enumerate(
-                pool.imap((contigs, orf_finder), filt_seqs), 1
-            ):
-                for gene_i, gene in enumerate(predicted_genes, 1):
-                    header = (
-                        f"{seq_acc}_{gene_i} # {gene.begin} # {gene.end} # "
-                        + f"{gene.strand} # ID={seq_i}_{gene_i};"
-                        + f"partial={int(gene.partial_begin)}{int(gene.partial_end)};"
-                        + f"start_type={gene.start_type};rbs_motif={gene.rbs_motif};"
-                        + f"rbs_spacer={gene.rbs_spacer};"
-                        + f"genetic_code={gene.translation_table};"
-                        + f"gc_cont={gene.gc_cont:.3f}"
-                    )
-                    gene = filt_seqs.Sequence(header, gene.translate(include_stop=False))
-                    fout.write(str(gene))
+	with open(outfile, "w") as fout :
+		for seqrecord in filt_seqs: 
+			genes = orf_finder.find_genes(bytes(seqrecord.seq))
+			genes.write_translations(fout, sequence_id=seqrecord.id)
+				
+
 	
 
 
