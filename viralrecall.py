@@ -10,8 +10,13 @@ from itertools import islice
 import math
 from pathlib import Path
 import pyrodigal_gv
-import pyhmmer
+from pyhmmer.easel import Alphabet, SequenceFile
+from pyhmmer.plan7 import HMMFile, Pipeline
 import multiprocessing.pool
+
+# Load nucleotide FASTA sequences
+def load_sequences(fasta_path):
+    return list(SeqIO.parse(fasta_path, "fasta"))
 
 
 def is_fasta(input):
@@ -51,13 +56,42 @@ def predict_proteins(input, contigs, project, cpus):
 	filt_seqs = [record for record in record if record.id in contig_list]
 	#print(filt_seqs)
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
-	with open(outfile, "w") as fout :
-		for seqrecord in filt_seqs: 
-			genes = orf_finder.find_genes(bytes(seqrecord.seq))
-			genes.write_translations(fout, sequence_id=seqrecord.id)
-				
+	#with open(outfile, "w") as fout :
+	proteins = []
+	for seqrecord in filt_seqs: 
+		genes = orf_finder.find_genes(str(seqrecord.seq))
+		for n, gene in enumerate(genes):
+			aa = gene.translate()
+			num = str(n + 1)
+			id = seqrecord.id + "_" + num
+			proteins.append((id, aa))
+	return proteins
+					
 
-	
+
+def search_with_pyhmmer(proteins, hmm_path):
+    alphabet = Alphabet.amino()
+    pipeline = Pipeline(alphabet)
+    results = []
+
+    with HMMFile(hmm_path) as hmm_file:
+        # Convert protein predictions into pyhmmer Sequence objects
+        seqs = []
+        for i, (id_str, aa_str) in enumerate(proteins):
+            name = f"prot_{i}".encode()
+            seqs.append(alphabet.decode(aa_str.encode(), name=name))
+
+        hits = pipeline.search_hmmpress(hmm_file, seqs)
+        for hitlist in hits:
+            for hit in hitlist:
+                results.append({
+                    "target_name": hit.name.decode(),
+                    "query_name": hitlist.query_name.decode(),
+                    "score": hit.score,
+                    "evalue": hit.evalue,
+                })
+    return results
+
 
 
 def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
@@ -67,7 +101,8 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	is_fasta(input)
 	is_DNA(input)
 	filt_contig_list = filt_contigs(input, phagesize)
-	predict_proteins(input, filt_contig_list, project, cpus)
+	proteins = predict_proteins(input, filt_contig_list, project, cpus)
+
 	
 
 
