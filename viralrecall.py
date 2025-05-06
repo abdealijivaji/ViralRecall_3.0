@@ -10,13 +10,14 @@ from itertools import islice
 import math
 from pathlib import Path
 import pyrodigal_gv
+import pyhmmer
 from pyhmmer.easel import Alphabet, SequenceFile
 from pyhmmer.plan7 import HMMFile, Pipeline
 import multiprocessing.pool
 
 # Load nucleotide FASTA sequences
 def load_sequences(fasta_path):
-    return list(SeqIO.parse(fasta_path, "fasta"))
+	return list(SeqIO.parse(fasta_path, "fasta"))
 
 
 def is_fasta(input):
@@ -58,39 +59,64 @@ def predict_proteins(input, contigs, project, cpus):
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 	#with open(outfile, "w") as fout :
 	proteins = []
-	for seqrecord in filt_seqs: 
-		genes = orf_finder.find_genes(str(seqrecord.seq))
-		for n, gene in enumerate(genes):
-			aa = gene.translate()
-			num = str(n + 1)
-			id = seqrecord.id + "_" + num
-			proteins.append((id, aa))
-	return proteins
+	header = []
+	with open(outfile, "w") as fout :
+		for seqrecord in filt_seqs:
+			genes = orf_finder.find_genes(bytes(seqrecord.seq))
+			genes.write_translations(fout, sequence_id=seqrecord.id)
+			for n, gene in enumerate(genes, start= 1):
+				aa = gene.translate()
+				num = str(n)
+				id = seqrecord.id + "_" + num
+				# head = (
+				# 			f"{id} # {gene.begin} # {gene.end} # "
+				# 			+ f"{gene.strand} # ID={num}; "
+				# 			+ f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
+				# 			+ f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
+				# 			+ f"rbs_spacer={gene.rbs_spacer}; "
+				# 			+ f"genetic_code={gene.translation_table}; "
+				# 			+ f"gc_cont={gene.gc_cont:.3f}"
+				# 		)
+				# header.append(head)
+				proteins.append((id, aa))
+	#print(proteins)
+	return proteins, outfile
 					
 
 
-def search_with_pyhmmer(proteins, hmm_path):
-    alphabet = Alphabet.amino()
-    pipeline = Pipeline(alphabet)
-    results = []
+def search_with_pyhmmer(proteins, project, hmm_path):
+	alphabet = Alphabet.amino()
+	pipeline = Pipeline(alphabet)
+	results = []
+	#seqs: list[pyhmmer.easel.DigitalSequence] = [ pyhmmer.easel.TextSequence(sequence=prot.value(), name=bytes(prot.key(), 'UTF-8')).digitize(alphabet) for prot in proteins ]
+	seqs = []
+	outfile = project + "/" + project + ".hmmout"
+	#digseqs = []
+	for i, (id, aa) in enumerate(proteins):
+		seqs.append(pyhmmer.easel.TextSequence(name = bytes(id,  'UTF-8'), sequence= aa).digitize(alphabet))
+		#digseqs = pyhmmer.easel.DigitalSequence(alphabet, name = bytes(id,  'UTF-8'), sequence= bytes(aa, 'UTF-8'))
+	#digseqs = seqs.digitize(alphabet)
+	digseqs = pyhmmer.easel.DigitalSequenceBlock(alphabet, seqs)
+	#print(pyhmmer.easel.DigitalSequence(alphabet, seqs))
+	
+	
+	with HMMFile(hmm_path) as hmm_file:
+		hits_file = pyhmmer.plan7.TopHits(hmm_file)
+		# Convert protein predictions into pyhmmer Sequence objects
+		hits = pyhmmer.hmmer.hmmsearch(hmm_file, digseqs)
 
-    with HMMFile(hmm_path) as hmm_file:
-        # Convert protein predictions into pyhmmer Sequence objects
-        seqs = []
-        for i, (id_str, aa_str) in enumerate(proteins):
-            name = f"prot_{i}".encode()
-            seqs.append(alphabet.decode(aa_str.encode(), name=name))
-
-        hits = pipeline.search_hmmpress(hmm_file, seqs)
-        for hitlist in hits:
-            for hit in hitlist:
-                results.append({
-                    "target_name": hit.name.decode(),
-                    "query_name": hitlist.query_name.decode(),
-                    "score": hit.score,
-                    "evalue": hit.evalue,
-                })
-    return results
+		for hitlist in hits:
+			#hits_file.merge(hitlist)
+			for hit in hitlist:
+				results.append({
+					"target_name": hit.name.decode(),
+					"query_name": hitlist.query.name.decode(),
+					"score": hit.score,
+					"evalue": hit.evalue,
+				})
+	with open(outfile, "wb") as fout:
+				hits.write(fout, "targets")
+	return results
 
 
 
@@ -101,9 +127,10 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	is_fasta(input)
 	is_DNA(input)
 	filt_contig_list = filt_contigs(input, phagesize)
-	proteins = predict_proteins(input, filt_contig_list, project, cpus)
-
-	
+	proteins, outfile = predict_proteins(input, filt_contig_list, project, cpus)
+	hmm_dir = database
+	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
+	print(hmm_results)
 
 
 
@@ -186,7 +213,7 @@ def main(argv=None):
 			os.mkdir(project)
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
-	
+		database = "/home/abdeali/packages/viralrecall/hmm/NCLDV_markers.hmm"
 		run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
