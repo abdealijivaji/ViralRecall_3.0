@@ -46,7 +46,7 @@ def filt_contigs(input, phagesize) -> list :
 	return filt_seqs
 
 def predict_proteins(input, contigs, project, cpus):
-	record = SeqIO.parse(input, "fasta")
+	record = input
 	contig_list = contigs
 	threads = int(cpus)
 	outfile = project + "/" + project + ".faa"
@@ -62,19 +62,18 @@ def predict_proteins(input, contigs, project, cpus):
 			genes.write_translations(fout, sequence_id=seqrecord.id)
 			for n, gene in enumerate(genes, start= 1):
 				aa = gene.translate()
-				num = str(n)
-				id = seqrecord.id + "_" + num
-				# head = (
-				# 			f"{id} # {gene.begin} # {gene.end} # "
-				# 			+ f"{gene.strand} # ID={num}; "
-				# 			+ f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
-				# 			+ f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
-				# 			+ f"rbs_spacer={gene.rbs_spacer}; "
-				# 			+ f"genetic_code={gene.translation_table}; "
-				# 			+ f"gc_cont={gene.gc_cont:.3f}"
-				# 		)
-				# header.append(head)
-				proteins.append((id, aa))
+				id = seqrecord.id + "_" + str(n)
+				head = (
+							f"{id} # {gene.begin} # {gene.end} # "
+							+ f"{gene.strand} # ID={n}; "
+							+ f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
+							+ f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
+							+ f"rbs_spacer={gene.rbs_spacer}; "
+							+ f"genetic_code={gene.translation_table}; "
+							+ f"gc_cont={gene.gc_cont:.3f}"
+						)
+				header.append(head)
+				proteins.append((head, aa))
 	#print(proteins)
 	return proteins, outfile
 					
@@ -125,7 +124,8 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 
 	is_DNA(genome_file)
 	filt_contig_list = filt_contigs(genome_file, phagesize)
-	# proteins, outfile = predict_proteins(input, filt_contig_list, project, cpus)
+	proteins, outfile = predict_proteins(genome_file, filt_contig_list, project, cpus)
+	
 	# hmm_dir = database
 	# hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
 	# print(hmm_results)
