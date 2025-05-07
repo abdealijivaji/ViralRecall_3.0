@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-import sys, os, re, shlex, subprocess, pandas, numpy, itertools, argparse, time
+import sys, os, re, shlex, subprocess, pandas, numpy, itertools, argparse, time, warnings
 from collections import defaultdict
 from Bio import SeqIO
+import Bio
 from operator import itemgetter
 from itertools import islice
 #import matplotlib
@@ -15,33 +16,28 @@ from pyhmmer.easel import Alphabet, SequenceFile
 from pyhmmer.plan7 import HMMFile, Pipeline
 import multiprocessing.pool
 
+warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 # Load nucleotide FASTA sequences
-def load_sequences(fasta_path):
-	return list(SeqIO.parse(fasta_path, "fasta"))
-
-
-def is_fasta(input):
-	"""
-	Checks if a file is in FASTA format.
-	"""
-	seqdict = SeqIO.index(input, "fasta")
-	if len(seqdict) < 1:
-		print(input +" does not appear to be in FASTA format! Quitting")
+def load_sequences(input) -> list :
+	genome_file : list = list(SeqIO.parse(input, "fasta"))
+	if not genome_file:
+		print(f"{input} does not appear to be in FASTA format! Quitting")
 		quit()
+	else:
+		return genome_file
+
 
 valid_bases = set('ATCGN')
-def is_DNA(input):
-	sequence = list(SeqIO.parse(input, "fasta"))
+def is_DNA(sequence) -> None:
+	
 	sequence = sequence[0].seq
 	sequence = sequence.upper()
-	#print(sequence[0].seq.upper())
-	#print(set(sequence))
-	#Let's check the validity of the  DNA sequence
+	
 	if not set(sequence).issubset(valid_bases):
 		print("Input Sequence contains non-DNA letters. Are you sure input is DNA sequence?")
 
 def filt_contigs(input, phagesize) -> list :
-	seq_file = SeqIO.parse(input, "fasta")
+	seq_file = input
 	contig_len = int(phagesize)
 	filt_seqs = [record.id for record in seq_file if len(record.seq) > contig_len]	
 	#print(filt_seqs)
@@ -124,13 +120,15 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	# with open(input) as handle:
 	# 	is_fasta(handle)
 	# 	filt_contigs(handle, phagesize)
-	is_fasta(input)
-	is_DNA(input)
-	filt_contig_list = filt_contigs(input, phagesize)
-	proteins, outfile = predict_proteins(input, filt_contig_list, project, cpus)
-	hmm_dir = database
-	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
-	print(hmm_results)
+	
+	genome_file = load_sequences(input)
+
+	is_DNA(genome_file)
+	filt_contig_list = filt_contigs(genome_file, phagesize)
+	# proteins, outfile = predict_proteins(input, filt_contig_list, project, cpus)
+	# hmm_dir = database
+	# hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
+	# print(hmm_results)
 
 
 
