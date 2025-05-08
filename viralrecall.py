@@ -21,8 +21,7 @@ warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 def load_sequences(input) -> list :
 	genome_file : list = list(SeqIO.parse(input, "fasta"))
 	if not genome_file:
-		print(f"{input} does not appear to be in FASTA format! Quitting")
-		quit()
+		raise(f"{input} does not appear to be in FASTA format! Quitting")
 	else:
 		return genome_file
 
@@ -96,21 +95,24 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 	
 	
 	with HMMFile(hmm_path) as hmm_file:
-		hits_file = pyhmmer.plan7.TopHits(hmm_file)
 		# Convert protein predictions into pyhmmer Sequence objects
 		hits = pyhmmer.hmmer.hmmsearch(hmm_file, digseqs)
 
 		for hitlist in hits:
+			with open(outfile, "wb") as fout:
+				hitlist.write(fout, "targets")
 			#hits_file.merge(hitlist)
 			for hit in hitlist:
+				hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
+				name_of_hit =  bytes(hit.name.decode().split(None, maxsplit=1)[0], 'UTF-8')
 				results.append({
-					"target_name": hit.name.decode(),
+					"target_name": name_of_hit.decode() ,
 					"query_name": hitlist.query.name.decode(),
 					"score": hit.score,
 					"evalue": hit.evalue,
+					"description: " : hit.description.decode()
 				})
-	with open(outfile, "wb") as fout:
-				hits.write(fout, "targets")
+	
 	return results
 
 
@@ -126,9 +128,9 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	filt_contig_list = filt_contigs(genome_file, phagesize)
 	proteins, outfile = predict_proteins(genome_file, filt_contig_list, project, cpus)
 	
-	# hmm_dir = database
-	# hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
-	# print(hmm_results)
+	hmm_dir = database
+	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
+	print(hmm_results)
 
 
 
