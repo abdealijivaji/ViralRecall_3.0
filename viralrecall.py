@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys, os, re, shlex, subprocess, pandas, numpy, itertools, argparse, time, warnings
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from Bio import SeqIO
 import Bio
 from operator import itemgetter
@@ -18,18 +18,19 @@ import multiprocessing.pool
 
 warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 # Load nucleotide FASTA sequences
-def load_sequences(input) -> list :
+def load_sequences(input) :
 	genome_file : list = list(SeqIO.parse(input, "fasta"))
 	if not genome_file:
-		raise(f"{input} does not appear to be in FASTA format! Quitting")
+		print(f"{input} does not appear to be in FASTA format! Quitting")
 	else:
 		return genome_file
 
 
 valid_bases = set('ATCGN')
 def is_DNA(sequence) -> None:
-	
-	sequence = sequence[0].seq
+	#print(sequence)
+
+	sequence = sequence[0]
 	sequence = sequence.upper()
 	
 	if not set(sequence).issubset(valid_bases):
@@ -48,7 +49,7 @@ def predict_proteins(input, contigs, project, cpus):
 	record = input
 	contig_list = contigs
 	threads = int(cpus)
-	outfile = project + "/" + project + ".faa"
+	outfile = project + "/" + project + ".faa"  
 	filt_seqs = [record for record in record if record.id in contig_list]
 	#print(filt_seqs)
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
@@ -82,6 +83,7 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 	alphabet = Alphabet.amino()
 	pipeline = Pipeline(alphabet)
 	results = []
+	Result = namedtuple("Result", ["query", "HMM_hit", "bitscore", "evalue", "description"])	
 	#seqs: list[pyhmmer.easel.DigitalSequence] = [ pyhmmer.easel.TextSequence(sequence=prot.value(), name=bytes(prot.key(), 'UTF-8')).digitize(alphabet) for prot in proteins ]
 	seqs = []
 	outfile = project + "/" + project + ".hmmout"
@@ -99,20 +101,15 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 		hits = pyhmmer.hmmer.hmmsearch(hmm_file, digseqs)
 
 		for hitlist in hits:
-			with open(outfile, "wb") as fout:
-				hitlist.write(fout, "targets")
-			#hits_file.merge(hitlist)
 			for hit in hitlist:
 				hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
 				name_of_hit =  bytes(hit.name.decode().split(None, maxsplit=1)[0], 'UTF-8')
-				results.append({
-					"target_name": name_of_hit.decode() ,
-					"query_name": hitlist.query.name.decode(),
-					"score": hit.score,
-					"evalue": hit.evalue,
-					"description: " : hit.description.decode()
-				})
-	
+				results.append(Result(name_of_hit.decode() ,
+					hitlist.query.name.decode(),
+					round(hit.score, 2),
+					hit.evalue,
+					hit.description.decode()
+				))
 	return results
 
 
@@ -130,16 +127,23 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	
 	hmm_dir = database
 	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
-	print(hmm_results)
-
+	#print(hmm_results)
+	hmmout = project + "/" + project + ".hmmout"
+	hmm_df = pandas.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
+	hmm_df.to_csv(hmmout, index=False, sep= "\t")
+	print(hmm_df)
+	# with open(hmmout, "w") as out:
+	# 	for res in hmm_results:
+	# 		line = [res.query, res.HMM_hit, str(res.bitscore), str(res.evalue), res.description]
+	# 		out.writelines(str(line) + '\n')
 
 
 
 def main(argv=None):
 
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 2.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=True, help='Input FASTA file (ending in .fna)')
-	args_parser.add_argument('-p', '--project', required=True, help='project name for outputs')
+	args_parser.add_argument('-i', '--input', required=False, help='Input FASTA file (ending in .fna)')
+	args_parser.add_argument('-p', '--project', required=False, help='project name for outputs')
 	args_parser.add_argument('-db', '--database', required=False, default="GVOG", help='Viral HMM database to use. Options are "general" for the general VOG db, "GVOG" for the GVOG db, and "marker" for searching only a set of 10 conserved NCLDV markers (good for screening large datasets). See README for details')
 	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15)')
 	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10)')
@@ -156,8 +160,8 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
-	input = args_parser.input
-	project = args_parser.project
+	input = "/home/abdeali/viralR_test_input/cat_genomes.fna" # args_parser.input # 
+	project = "test_out/" #args_parser.project
 	database = args_parser.database
 	window = int(args_parser.window)
 	phagesize = int(args_parser.minsize)*1000
