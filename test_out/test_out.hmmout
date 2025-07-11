@@ -1,0 +1,24 @@
+query	HMM_hit	bitscore	evalue	description
+JTEE01000022.1_479	A32	322.31	1.6080541936506315e-97	# 413486 # 414277 # 1 # ID=479; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.559
+JN603369.1_3	A32	28.37	7.578938432172423e-08	# 1089 # 1826 # -1 # ID=3; partial=00; start_type=ATG ; rbs_motif=TATATA; rbs_spacer=3bp; genetic_code=11; gc_cont=0.270
+JTEE01000022.1_754	A32	12.21	0.0064645411336263555	# 653988 # 654272 # -1 # ID=754; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.614
+JTEE01000022.1_411	D5	216.97	3.8721153210567624e-65	# 364703 # 367618 # -1 # ID=411; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.643
+JN603369.1_14	D5	136.53	7.979542905321702e-41	# 9041 # 11380 # 1 # ID=14; partial=00; start_type=ATG ; rbs_motif=TATA; rbs_spacer=9bp; genetic_code=11; gc_cont=0.256
+JTEE01000022.1_645	D5	53.88	7.638187644653131e-16	# 554280 # 555527 # -1 # ID=645; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.675
+JTEE01000022.1_483	mcp	383.77	7.43818979237367e-116	# 415796 # 417556 # 1 # ID=483; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.599
+JTEE01000022.1_508	mcp	366.86	1.0090379504628379e-110	# 438410 # 439855 # -1 # ID=508; partial=00; start_type=GTG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.577
+JTEE01000022.1_642	mcp	233.05	4.123842707451442e-70	# 550723 # 551733 # -1 # ID=642; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.588
+JTEE01000022.1_612	mcp	118.04	3.3194470539034373e-35	# 530840 # 532396 # -1 # ID=612; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.643
+JTEE01000022.1_641	mcp	58.34	4.3602186591691265e-17	# 550529 # 550780 # -1 # ID=641; partial=00; start_type=GTG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.655
+JTEE01000022.1_530	mRNAc	138.38	2.3171845701049616e-41	# 463098 # 464039 # 1 # ID=530; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.609
+JTEE01000022.1_543	mRNAc	96.66	9.340872172289019e-29	# 474140 # 474964 # 1 # ID=543; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.599
+JTEE01000022.1_628	mRNAc	22.24	2.8951197835297843e-06	# 541841 # 542464 # -1 # ID=628; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.662
+JTEE01000022.1_576	PolB	214.79	1.4714055863835735e-64	# 502506 # 503318 # 1 # ID=576; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.627
+JTEE01000022.1_570	PolB	156.38	6.488293224031059e-47	# 498554 # 499597 # 1 # ID=570; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.615
+JTEE01000022.1_571	PolB	130.02	5.961148402648656e-39	# 499555 # 499995 # 1 # ID=571; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.585
+JTEE01000022.1_573	PolB	44.98	2.925545786461412e-13	# 500389 # 500646 # 1 # ID=573; partial=00; start_type=GTG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.620
+JTEE01000022.1_572	PolB	23.6	8.411587581494491e-07	# 500048 # 500380 # 1 # ID=572; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.580
+JTEE01000022.1_631	RNR	478.01	1.2354455666056693e-144	# 543754 # 544719 # -1 # ID=631; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.597
+JTEE01000022.1_583	SFII	355.72	2.7190607930738585e-107	# 509681 # 511003 # 1 # ID=583; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.628
+JTEE01000022.1_684	SFII	21.48	8.065546234034285e-06	# 583971 # 585719 # 1 # ID=684; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.624
+JTEE01000022.1_520	VLTF3	319.87	1.7173602181828146e-96	# 456100 # 457083 # 1 # ID=520; partial=00; start_type=ATG ; rbs_motif=None; rbs_spacer=None; genetic_code=11; gc_cont=0.558
