@@ -56,6 +56,8 @@ def predict_proteins(input, contigs, project, cpus):
 	#with open(outfile, "w") as fout :
 	proteins = []
 	header = []
+	Header = namedtuple("Header", ["ID", "pstart", "pend", "pstrand", "gen_co"])
+
 	with open(outfile, "w") as fout :
 		for seqrecord in filt_seqs:
 			genes = orf_finder.find_genes(bytes(seqrecord.seq))
@@ -63,19 +65,19 @@ def predict_proteins(input, contigs, project, cpus):
 			for n, gene in enumerate(genes, start= 1):
 				aa = gene.translate()
 				id = seqrecord.id + "_" + str(n)
-				head = (
-							f"{id} # {gene.begin} # {gene.end} # "
-							+ f"{gene.strand} # ID={n}; "
-							+ f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
-							+ f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
-							+ f"rbs_spacer={gene.rbs_spacer}; "
-							+ f"genetic_code={gene.translation_table}; "
-							+ f"gc_cont={gene.gc_cont:.3f}"
+				head = (Header(id, gene.begin, gene.end, gene.strand, gene.translation_table)
+							# f"{id} # {gene.begin} # {gene.end} # "
+							# + f"{gene.strand} # ID={n}; "
+							# + f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
+							# + f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
+							# + f"rbs_spacer={gene.rbs_spacer}; "
+							# + f"genetic_code={gene.translation_table}; "
+							# + f"gc_cont={gene.gc_cont:.3f}"
 						)
 				header.append(head)
-				proteins.append((head, aa))
+				proteins.append((id, aa))
 	#print(proteins)
-	return proteins, outfile
+	return proteins, outfile, header
 					
 
 
@@ -83,7 +85,7 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 	alphabet = Alphabet.amino()
 	pipeline = Pipeline(alphabet)
 	results = []
-	Result = namedtuple("Result", ["query", "HMM_hit", "bitscore", "evalue", "description"])	
+	Result = namedtuple("Result", ["query", "HMM_hit", "bitscore", "evalue"])	
 	#seqs: list[pyhmmer.easel.DigitalSequence] = [ pyhmmer.easel.TextSequence(sequence=prot.value(), name=bytes(prot.key(), 'UTF-8')).digitize(alphabet) for prot in proteins ]
 	seqs = []
 	outfile = project + "/" + project + ".hmmout"
@@ -102,17 +104,28 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 
 		for hitlist in hits:
 			for hit in hitlist:
-				hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
-				name_of_hit =  bytes(hit.name.decode().split(None, maxsplit=1)[0], 'UTF-8')
-				results.append(Result(name_of_hit.decode() ,
+				# hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
+				# name_of_hit =  bytes(hit.name.decode().split(None, maxsplit=1)[0], 'UTF-8')
+				results.append(Result(hit.name.decode() ,
 					hitlist.query.name.decode(),
 					round(hit.score, 2),
 					hit.evalue,
-					hit.description.decode()
+					# hit.description.decode()
 				))
 	return results
 
 
+def get_region(hits, description, contig) :
+	
+	HMM_desc = []
+
+	for j in description:
+		for i in hits:
+			if j[0] == i[0] :
+				HMM_desc.append(j)
+			
+	print(HMM_desc)
+	
 
 def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
 	# with open(input) as handle:
@@ -122,16 +135,22 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	genome_file = load_sequences(input)
 
 	is_DNA(genome_file)
-	filt_contig_list = filt_contigs(genome_file, phagesize)
-	proteins, outfile = predict_proteins(genome_file, filt_contig_list, project, cpus)
 	
+	filt_contig_list = filt_contigs(genome_file, phagesize)
+	
+	proteins, outfile, description = predict_proteins(genome_file, filt_contig_list, project, cpus)
+	
+
 	hmm_dir = database
 	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
-	#print(hmm_results)
+	
+
 	hmmout = project + "/" + project + ".hmmout"
 	hmm_df = pandas.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
-	print(hmm_df)
+
+	get_region(hmm_results, description, filt_contig_list)
+	# print(hmm_df)
 	# with open(hmmout, "w") as out:
 	# 	for res in hmm_results:
 	# 		line = [res.query, res.HMM_hit, str(res.bitscore), str(res.evalue), res.description]
