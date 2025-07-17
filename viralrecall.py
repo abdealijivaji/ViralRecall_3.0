@@ -1,14 +1,8 @@
 #!/usr/bin/env python
-import sys, os, re, shlex, subprocess, pandas, numpy, itertools, argparse, time, warnings
+import sys, os, pandas, argparse, time, warnings
 from collections import defaultdict, namedtuple
-from Bio import SeqIO
 import Bio
-from operator import itemgetter
-from itertools import islice
-#import matplotlib
-#matplotlib.use('Agg')
-#import matplotlib.pyplot as plt
-import math
+from Bio import SeqIO
 from pathlib import Path
 import pyrodigal_gv
 import pyhmmer
@@ -17,19 +11,19 @@ from pyhmmer.plan7 import HMMFile, Pipeline
 import multiprocessing.pool
 
 warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
-# Load nucleotide FASTA sequences
+
 def load_sequences(input) :
+	''' Load nucleotide FASTA sequences '''
 	genome_file : list = list(SeqIO.parse(input, "fasta"))
 	if not genome_file:
-		print(f"{input} does not appear to be in FASTA format! Quitting")
+		print(f"{input} does not appear to be in FASTA format!")
 	else:
 		return genome_file
 
 
 valid_bases = set('ATCGN')
 def is_DNA(sequence) -> None:
-	#print(sequence)
-
+	''' Checks if input is protein or DNA '''
 	sequence = sequence[0]
 	sequence = sequence.upper()
 	
@@ -37,6 +31,7 @@ def is_DNA(sequence) -> None:
 		print("Input Sequence contains non-DNA letters. Are you sure input is DNA sequence?")
 
 def filt_contigs(input, phagesize) -> list :
+	''' Remove contigs less than a certain size to save on compute time '''
 	seq_file = input
 	contig_len = int(phagesize)
 	filt_seqs = [record.id for record in seq_file if len(record.seq) > contig_len]	
@@ -45,27 +40,27 @@ def filt_contigs(input, phagesize) -> list :
 		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
 	return filt_seqs
 
-def predict_proteins(input, contigs, project, cpus):
+def predict_proteins(input, contigs, outfile, cpus):
 	record = input
 	contig_list = contigs
 	threads = int(cpus)
-	outfile = project + "/" + project + ".faa"  
+	prot_out = outfile + ".faa"  
 	filt_seqs = [record for record in record if record.id in contig_list]
 	#print(filt_seqs)
 	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 	#with open(outfile, "w") as fout :
 	proteins = []
 	header = []
-	Header = namedtuple("Header", ["ID", "pstart", "pend", "pstrand", "gen_co"])
+	Header = namedtuple("Header", ["contig", "query", "pstart", "pend", "pstrand", "gen_code"])
 
-	with open(outfile, "w") as fout :
+	with open(prot_out, "w") as fout :
 		for seqrecord in filt_seqs:
 			genes = orf_finder.find_genes(bytes(seqrecord.seq))
 			genes.write_translations(fout, sequence_id=seqrecord.id)
 			for n, gene in enumerate(genes, start= 1):
 				aa = gene.translate()
-				id = seqrecord.id + "_" + str(n)
-				head = (Header(id, gene.begin, gene.end, gene.strand, gene.translation_table)
+				prot_id = seqrecord.id + "_" + str(n)
+				head = (Header(seqrecord.id, prot_id, gene.begin, gene.end, gene.strand, gene.translation_table)
 							# f"{id} # {gene.begin} # {gene.end} # "
 							# + f"{gene.strand} # ID={n}; "
 							# + f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
@@ -75,9 +70,9 @@ def predict_proteins(input, contigs, project, cpus):
 							# + f"gc_cont={gene.gc_cont:.3f}"
 						)
 				header.append(head)
-				proteins.append((id, aa))
+				proteins.append((prot_id, aa))
 	#print(proteins)
-	return proteins, outfile, header
+	return proteins, prot_out, header
 					
 
 
@@ -85,13 +80,13 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 	alphabet = Alphabet.amino()
 	pipeline = Pipeline(alphabet)
 	results = []
-	Result = namedtuple("Result", ["query", "HMM_hit", "bitscore", "evalue"])	
+	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	#seqs: list[pyhmmer.easel.DigitalSequence] = [ pyhmmer.easel.TextSequence(sequence=prot.value(), name=bytes(prot.key(), 'UTF-8')).digitize(alphabet) for prot in proteins ]
 	seqs = []
-	outfile = project + "/" + project + ".hmmout"
+	#outfile = project + "/" + project + ".hmmout"
 	#digseqs = []
-	for i, (id, aa) in enumerate(proteins):
-		seqs.append(pyhmmer.easel.TextSequence(name = bytes(id,  'UTF-8'), sequence= aa).digitize(alphabet))
+	for i, (prot_id, aa) in enumerate(proteins):
+		seqs.append(pyhmmer.easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(alphabet))
 		#digseqs = pyhmmer.easel.DigitalSequence(alphabet, name = bytes(id,  'UTF-8'), sequence= bytes(aa, 'UTF-8'))
 	#digseqs = seqs.digitize(alphabet)
 	digseqs = pyhmmer.easel.DigitalSequenceBlock(alphabet, seqs)
@@ -105,29 +100,52 @@ def search_with_pyhmmer(proteins, project, hmm_path):
 		for hitlist in hits:
 			for hit in hitlist:
 				# hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
-				# name_of_hit =  bytes(hit.name.decode().split(None, maxsplit=1)[0], 'UTF-8')
-				results.append(Result(hit.name.decode() ,
+				Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
+				eval = "%.3g" % hit.evalue
+				results.append(Result(
+					Contig ,
+					hit.name.decode() ,
 					hitlist.query.name.decode(),
 					round(hit.score, 2),
-					hit.evalue,
+					eval,
 					# hit.description.decode()
 				))
 	return results
 
 
 def get_region(hits, description, contig) :
-	
-	HMM_desc = []
+	''' To get coordinates of putative viral regions '''
+	viral_contig_reg = defaultdict(list, { k:[] for k in contig})
 
+	start = []
+	end = []
 	for j in description:
+	
 		for i in hits:
-			if j[0] == i[0] :
-				HMM_desc.append(j)
+			if j.query == i.query :
+				start.append(j.pstart)
+				end.append(j.pend)
+	
+	
+	
 			
-	print(HMM_desc)
+
+def count_hits(hits, contigs):
+	''' Rught now does listing of markers for each contig '''
+	query2hits = defaultdict(list)
+	for i in contigs:
+		for j in hits:
+			if i == j.contig:
+				marker_score = j.HMM_hit + ": " + str(j.bitscore)
+				query2hits[i].append(marker_score)
+
+	return query2hits
+		
 	
 
-def run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
+	
+
+def run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
 	# with open(input) as handle:
 	# 	is_fasta(handle)
 	# 	filt_contigs(handle, phagesize)
@@ -138,18 +156,22 @@ def run_program(input, project, database, window, phagesize, minscore, minhit, e
 	
 	filt_contig_list = filt_contigs(genome_file, phagesize)
 	
-	proteins, outfile, description = predict_proteins(genome_file, filt_contig_list, project, cpus)
+	proteins, outfile, description = predict_proteins(genome_file, filt_contig_list, out_base, cpus)
 	
 
 	hmm_dir = database
-	hmm_results = search_with_pyhmmer(proteins, project, hmm_dir)
+	hmm_results = search_with_pyhmmer(proteins, out_base, hmm_dir)
 	
 
-	hmmout = project + "/" + project + ".hmmout"
+	hmmout = out_base + ".hmmout"
 	hmm_df = pandas.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
 
-	get_region(hmm_results, description, filt_contig_list)
+	
+
+
+	#get_region(hmm_results, description, filt_contig_list)
+	contig_hits = count_hits(hmm_results, filt_contig_list)
 	# print(hmm_df)
 	# with open(hmmout, "w") as out:
 	# 	for res in hmm_results:
@@ -180,7 +202,7 @@ def main(argv=None):
 
 	# set up object names for input/output/database folders
 	input = "/home/abdeali/viralR_test_input/cat_genomes.fna" # args_parser.input # 
-	project = "test_out/" #args_parser.project
+	project = "/home/abdeali/test_out/" #args_parser.project
 	database = args_parser.database
 	window = int(args_parser.window)
 	phagesize = int(args_parser.minsize)*1000
@@ -234,10 +256,11 @@ def main(argv=None):
 			pass
 		else:
 			os.mkdir(project)
+		out_base = project + "/" + os.path.basename(project)
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
-		database = "/home/abdeali/packages/viralrecall/hmm/NCLDV_markers.hmm"
-		run_program(input, project, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
+		database = "/home/abdeali/packages/ViralRecall_3.0/hmm/merged_GVOGs.hmm"
+		run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
 
