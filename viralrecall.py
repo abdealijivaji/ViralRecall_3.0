@@ -5,10 +5,9 @@ import Bio
 from Bio import SeqIO
 from pathlib import Path
 import pyrodigal_gv
-import pyhmmer
-from pyhmmer.easel import Alphabet, SequenceFile
-from pyhmmer.plan7 import HMMFile, Pipeline
-import multiprocessing.pool
+from pyhmmer import easel, plan7, hmmer
+import multiprocessing.pool as mp
+from pyfaidx import Fasta
 
 warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 
@@ -40,62 +39,46 @@ def filt_contigs(input, phagesize) -> list :
 		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
 	return filt_seqs
 
-def predict_proteins(input, contigs, outfile, cpus):
-	record = input
-	contig_list = contigs
-	threads = int(cpus)
-	prot_out = outfile + ".faa"  
-	filt_seqs = [record for record in record if record.id in contig_list]
-	#print(filt_seqs)
-	orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
-	#with open(outfile, "w") as fout :
+
+orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
+
+def predict_proteins(input, contigs, outfile):
+	#threads = int(cpus)
 	proteins = []
 	header = []
 	Header = namedtuple("Header", ["contig", "query", "pstart", "pend", "pstrand", "gen_code"])
 
-	with open(prot_out, "w") as fout :
-		for seqrecord in filt_seqs:
-			genes = orf_finder.find_genes(bytes(seqrecord.seq))
-			genes.write_translations(fout, sequence_id=seqrecord.id)
+	with open(outfile, "w") as fout :
+		for seqrecord in contigs:
+			sequence = bytes(str(input[seqrecord]), 'UTF-8')
+			genes = orf_finder.find_genes(sequence)
+			genes.write_translations(fout, sequence_id=seqrecord)
 			for n, gene in enumerate(genes, start= 1):
 				aa = gene.translate()
-				prot_id = seqrecord.id + "_" + str(n)
-				head = (Header(seqrecord.id, prot_id, gene.begin, gene.end, gene.strand, gene.translation_table)
-							# f"{id} # {gene.begin} # {gene.end} # "
-							# + f"{gene.strand} # ID={n}; "
-							# + f"partial={int(gene.partial_begin)}{int(gene.partial_end)}; "
-							# + f"start_type={gene.start_type} ; rbs_motif={gene.rbs_motif}; "
-							# + f"rbs_spacer={gene.rbs_spacer}; "
-							# + f"genetic_code={gene.translation_table}; "
-							# + f"gc_cont={gene.gc_cont:.3f}"
-						)
+				prot_id = seqrecord + "_" + str(n)
+				head = Header(seqrecord, prot_id, gene.begin, gene.end, gene.strand, gene.translation_table)
 				header.append(head)
 				proteins.append((prot_id, aa))
 	#print(proteins)
-	return proteins, prot_out, header
+	return proteins, header
 					
 
+alphabet = easel.Alphabet.amino()
 
-def search_with_pyhmmer(proteins, project, hmm_path):
-	alphabet = Alphabet.amino()
-	pipeline = Pipeline(alphabet)
+def search_with_pyhmmer(proteins, hmm_path):
 	results = []
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
-	#seqs: list[pyhmmer.easel.DigitalSequence] = [ pyhmmer.easel.TextSequence(sequence=prot.value(), name=bytes(prot.key(), 'UTF-8')).digitize(alphabet) for prot in proteins ]
 	seqs = []
-	#outfile = project + "/" + project + ".hmmout"
-	#digseqs = []
+	
 	for i, (prot_id, aa) in enumerate(proteins):
-		seqs.append(pyhmmer.easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(alphabet))
-		#digseqs = pyhmmer.easel.DigitalSequence(alphabet, name = bytes(id,  'UTF-8'), sequence= bytes(aa, 'UTF-8'))
-	#digseqs = seqs.digitize(alphabet)
-	digseqs = pyhmmer.easel.DigitalSequenceBlock(alphabet, seqs)
-	#print(pyhmmer.easel.DigitalSequence(alphabet, seqs))
+		seqs.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(alphabet))
+	
+	digseqs = easel.DigitalSequenceBlock(alphabet, seqs)
 	
 	
-	with HMMFile(hmm_path) as hmm_file:
+	with plan7.HMMFile(hmm_path) as hmm_file:
 		# Convert protein predictions into pyhmmer Sequence objects
-		hits = pyhmmer.hmmer.hmmsearch(hmm_file, digseqs)
+		hits = hmmer.hmmsearch(hmm_file, digseqs)
 
 		for hitlist in hits:
 			for hit in hitlist:
@@ -146,23 +129,27 @@ def count_hits(hits, contigs):
 	
 
 def run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
-	# with open(input) as handle:
-	# 	is_fasta(handle)
-	# 	filt_contigs(handle, phagesize)
 	
-	genome_file = load_sequences(input)
+	# genome_file = load_sequences(input)
+	#is_DNA(genome_file)
+	#filt_contig_list = filt_contigs(genome_file, phagesize)
 
-	is_DNA(genome_file)
+	# Using pyfaidx to parse fasta and looping 
+	genome_file = Fasta(input)
+	filt_contig_list = []
 	
-	filt_contig_list = filt_contigs(genome_file, phagesize)
+	for contig in genome_file.keys():
+		if len(genome_file[contig]) >= phagesize :
+			filt_contig_list.append(contig)
 	
-	proteins, outfile, description = predict_proteins(genome_file, filt_contig_list, out_base, cpus)
+	prot_out = out_base + ".faa"  
+
+	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	
 
 	hmm_dir = database
-	hmm_results = search_with_pyhmmer(proteins, out_base, hmm_dir)
+	hmm_results = search_with_pyhmmer(proteins, hmm_dir)
 	
-
 	hmmout = out_base + ".hmmout"
 	hmm_df = pandas.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
@@ -201,7 +188,7 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
-	input = "/home/abdeali/viralR_test_input/" # args_parser.input # 
+	input = "/home/abdeali/viralR_test_input/cat_genomes.fna" # args_parser.input # 
 	project = "/home/abdeali/test_out/" #args_parser.project
 	database = args_parser.database
 	window = int(args_parser.window)
@@ -214,7 +201,7 @@ def main(argv=None):
 	redo = args_parser.redo
 	contiglevel = args_parser.contiglevel
 	flanking = args_parser.flanking
-	batch = True #  args_parser.batch
+	batch = args_parser.batch
 	
 	database = "/home/abdeali/packages/ViralRecall_3.0/hmm/merged_GVOGs.hmm"
 
