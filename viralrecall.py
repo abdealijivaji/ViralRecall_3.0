@@ -201,7 +201,7 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
-	input = "/home/abdeali/viralR_test_input/cat_genomes.fna" # args_parser.input # 
+	input = "/home/abdeali/viralR_test_input/" # args_parser.input # 
 	project = "/home/abdeali/test_out/" #args_parser.project
 	database = args_parser.database
 	window = int(args_parser.window)
@@ -214,9 +214,11 @@ def main(argv=None):
 	redo = args_parser.redo
 	contiglevel = args_parser.contiglevel
 	flanking = args_parser.flanking
-	batch = args_parser.batch
+	batch = True #  args_parser.batch
 	
-	# Base dir to establish path of viralrecall.py file
+	database = "/home/abdeali/packages/ViralRecall_3.0/hmm/merged_GVOGs.hmm"
+
+	# path of viralrecall.py file
 	base_dir = Path(__file__).parent.resolve()
 	#print(base_dir)
 	project = project.rstrip("/")
@@ -229,26 +231,21 @@ def main(argv=None):
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
 
-		# if os.path.isdir(project):
-		# 	pass
-		# else:
-		# 	os.mkdir(project)
-			
 		file_list = os.listdir(input)
 		for i in file_list:
 			# Remove suffix before creating directory
 			dir_name = Path(i)
 			dir_name = dir_name.with_suffix('')
-			print(dir_name)
-			newproject = os.path.join(project, dir_name)
-			if os.path.isdir(newproject):
+			new_project = os.path.join(project, dir_name)
+			out_base = os.path.join(new_project, dir_name)
+			if os.path.isdir(new_project):
 				pass
 			else:
-				os.mkdir(newproject)
+				os.mkdir(new_project)
 			#newproject = os.path.splitext(newproject)[0]
 			newinput = os.path.join(input, i)
-			print("Running viralrecall on "+ i + " and output will be deposited in "+ newproject)
-			#run_program(newinput, newproject, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
+			print("Running viralrecall on "+ i + " and output will be deposited in "+ new_project)
+			run_program(newinput, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 	else:
 		#summary_file = 1
 		# creates folder wherever you want now
@@ -256,10 +253,10 @@ def main(argv=None):
 			pass
 		else:
 			os.mkdir(project)
-		out_base = project + "/" + os.path.basename(project)
+		out_base = os.path.join(project, os.path.basename(project)) 
 		summary_file = open(os.path.join(project, "batch_summary.txt"), "w")
 		summary_file.write("genome\tcontigs_tested\n")
-		database = "/home/abdeali/packages/ViralRecall_3.0/hmm/merged_GVOGs.hmm"
+
 		run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel)
 
 	return 0
