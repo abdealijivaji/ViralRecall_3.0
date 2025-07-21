@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import sys, os, pandas, argparse, time, warnings
+import sys, os, argparse, time, warnings
+import pandas as pd
 from collections import defaultdict, namedtuple
 import Bio
 from Bio import SeqIO
@@ -11,34 +12,7 @@ from pyfaidx import Fasta
 
 warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 
-def load_sequences(input) :
-	''' Load nucleotide FASTA sequences '''
-	genome_file : list = list(SeqIO.parse(input, "fasta"))
-	if not genome_file:
-		print(f"{input} does not appear to be in FASTA format!")
-	else:
-		return genome_file
-
-
 valid_bases = set('ATCGN')
-def is_DNA(sequence) -> None:
-	''' Checks if input is protein or DNA '''
-	sequence = sequence[0]
-	sequence = sequence.upper()
-	
-	if not set(sequence).issubset(valid_bases):
-		print("Input Sequence contains non-DNA letters. Are you sure input is DNA sequence?")
-
-def filt_contigs(input, phagesize) -> list :
-	''' Remove contigs less than a certain size to save on compute time '''
-	seq_file = input
-	contig_len = int(phagesize)
-	filt_seqs = [record.id for record in seq_file if len(record.seq) > contig_len]	
-	#print(filt_seqs)
-	if len(filt_seqs) < 1:
-		print("genome file contains no contigs larger than {} kb.\nModify minimum contig length by -m flag".format(int(contig_len/1000)))
-	return filt_seqs
-
 
 orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 
@@ -95,7 +69,6 @@ def search_with_pyhmmer(proteins, hmm_path):
 				))
 	return results
 
-
 def get_region(hits, description, contig) :
 	''' To get coordinates of putative viral regions '''
 	viral_contig_reg = defaultdict(list, { k:[] for k in contig})
@@ -144,18 +117,27 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	
 	prot_out = out_base + ".faa"  
 
-	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
-	
+	proteins, description = predict_proteins(genome_file, filt_contig_list, prot_out)
+	desc_df = pd.DataFrame(description)
+	#print(desc_df)
 
 	hmm_dir = database
 	hmm_results = search_with_pyhmmer(proteins, hmm_dir)
 	
 	hmmout = out_base + ".hmmout"
-	hmm_df = pandas.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
+	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
+	#print(hmm_df)
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
+	df = pd.merge(desc_df, hmm_df, on = ['contig', 'query'], how = 'left')
+	df.fillna({'HMM_hit': "no_hit"}, inplace = True) # add column names to dictionary here to replace NA with no_hit for colums with strings
+	df.fillna(float(0), inplace = True)
 
-	
+	#print(df)
+	#df.to_csv(out_base, sep = '\t', index = False)
 
+	# Now to calculate score on a rolling window
+
+	print(df)
 
 	#get_region(hmm_results, description, filt_contig_list)
 	contig_hits = count_hits(hmm_results, filt_contig_list)
