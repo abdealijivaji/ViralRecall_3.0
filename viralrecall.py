@@ -45,7 +45,7 @@ def search_with_pyhmmer(proteins, hmm_path):
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	seqs = []
 	
-	for i, (prot_id, aa) in enumerate(proteins):
+	for (prot_id, aa) in proteins:
 		seqs.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(alphabet))
 	
 	digseqs = easel.DigitalSequenceBlock(alphabet, seqs)
@@ -53,21 +53,22 @@ def search_with_pyhmmer(proteins, hmm_path):
 	
 	with plan7.HMMFile(hmm_path) as hmm_file:
 		# Convert protein predictions into pyhmmer Sequence objects
-		hits = hmmer.hmmsearch(hmm_file, digseqs)
+		hits = hmmer.hmmsearch(hmm_file, digseqs, E=1e-5)
 
 		for hitlist in hits:
 			for hit in hitlist:
 				# hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
-				Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
-				eval = "%.3g" % hit.evalue
-				results.append(Result(
-					Contig ,
-					hit.name.decode() ,
-					hitlist.query.name.decode(),
-					round(hit.score, 2),
-					eval,
-					# hit.description.decode()
-				))
+				if hit.included:
+					Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
+					eval = "%.3g" % hit.evalue
+					results.append(Result(
+						Contig ,
+						hit.name.decode() ,
+						hitlist.query.name.decode(),
+						round(hit.score, 2),
+						eval,
+						# hit.description.decode()
+					))
 	return results
 
 def get_region(hits, description, contig) :
@@ -104,19 +105,22 @@ def sliding_window_mean(df, col_A, col_B, window_size=15000):
 	Calculate the mean of col_A in a variable-size window based on col_B.
 	The window includes all rows where (current B - earliest B in window) <= window_size.
 	"""
-	means = pd.Series(index=df.index, dtype=float)  # Initialize a Series to store means
-	for name, grp in df.groupby('contig',):
+	means = pd.Series(0.0, index=df.index, dtype=float)  # Initialize a Series to store means
+	for name, grp in df.groupby('contig'):
 		df = grp #.sort_values(col_B).reset_index(drop=True)
 		B = df[col_B] #to retain index 
 		A = df[col_A] #.values doesnt retain index
 		
 		for i in df.index:
 		# Find the leftmost index where B[i] + B[right] <= window_size
-			right = pd.Series.searchsorted(B, B[i] + window_size/2, side='left')
 			left = pd.Series.searchsorted(B, B[i] - window_size/2, side='left')
-			#print(A[left : right ])
-			means[i] = "%.3g" % A[left : right ].mean()
-			#print(means[i])
+			right = pd.Series.searchsorted(B, B[i] + window_size/2, side='left')
+
+			print("left: " + str(left) + " right: " + str(right))
+			print(A[left : right ])
+			means[i] = float("%.3g" % A[left : right ].mean()) #round to 3 decimal places and make it float
+			print(means[i])
+	
 	return means
 	
 
@@ -145,23 +149,18 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	
 	hmmout = out_base + ".hmmout"
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
-	#print(hmm_df)
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
-	df = pd.merge(desc_df, hmm_df, on = ['contig', 'query'], how = 'left')
+
+	# keep only top hits for each protein
+	best_hits = hmm_df.sort_values(by = ["query", "bitscore" ], ascending=False).groupby(['contig', 'query']).nth(0).reset_index(drop=True)
+	
+	df = pd.merge(desc_df, best_hits, on = ['contig', 'query'], how = 'left')
 	df.fillna({'HMM_hit': "no_hit"}, inplace = True) # add column names to dictionary here to replace NA with no_hit for colums with strings
 	df.fillna(float(0), inplace = True)
 
-	#print(df)
-	#df.to_csv(out_base, sep = '\t', index = False)
-
 	# Now to calculate score on a rolling window
-	'''
-	df['rollScore'] = df['bitscore'].rolling(window=15, min_periods= 3, center=True).mean()
-	df['winSumLen'] = df['pstart'].rolling(window=15, min_periods= 3, center=True).max() - df['pstart'].rolling(window=15, min_periods= 3, center=True).min()
-	df['NormRoll'] = (df['rollScore'] * 15000)/ df['winSumLen']
-	'''
-	#df.groupby(['contig']).apply(sliding_window_mean, col_A='bitscore', col_B='pstart', window_size=window).reset_index(drop=True)
-	df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=5000)
+	
+	df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=window)
 	#print(df)
 	df.to_csv(out_base + ".tsv", index=False, sep= "\t")
 
@@ -201,7 +200,7 @@ def main(argv=None):
 	input = "test_input/cat_genomes.fna" # args_parser.input # 
 	project = "test_out/" #args_parser.project
 	database = args_parser.database
-	window = int(args_parser.window)
+	window = int(args_parser.window)*1000 # convert to bp
 	phagesize = int(args_parser.minsize)*1000
 	minscore = int(args_parser.minscore)
 	minhit = int(args_parser.minhit)
