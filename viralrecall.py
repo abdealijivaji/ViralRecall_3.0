@@ -98,7 +98,7 @@ def count_hits(hits, contigs):
 	return query2hits
 		
 	
-
+#def make_window()
 	
 
 def run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
@@ -137,7 +137,13 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 
 	# Now to calculate score on a rolling window
 
+	df['rollScore'] = df['bitscore'].rolling(window=15, min_periods= 3, center=True).mean()
+	df['winSumLen'] = df['pstart'].rolling(window=15, min_periods= 3, center=True).max() - df['pstart'].rolling(window=15, min_periods= 3, center=True).min()
+	df['NormRoll'] = (df['rollScore'] * 15000)/ df['winSumLen']
 	print(df)
+	df.to_csv(out_base + ".tsv", index=False, sep= "\t")
+
+
 
 	#get_region(hmm_results, description, filt_contig_list)
 	contig_hits = count_hits(hmm_results, filt_contig_list)
@@ -170,8 +176,8 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
-	input = "/home/abdeali/viralR_test_input/cat_genomes.fna" # args_parser.input # 
-	project = "/home/abdeali/test_out/" #args_parser.project
+	input = "test_input/cat_genomes.fna" # args_parser.input # 
+	project = "test_out/" #args_parser.project
 	database = args_parser.database
 	window = int(args_parser.window)
 	phagesize = int(args_parser.minsize)*1000
@@ -185,7 +191,7 @@ def main(argv=None):
 	flanking = args_parser.flanking
 	batch = args_parser.batch
 	
-	database = "/home/abdeali/packages/ViralRecall_3.0/hmm/merged_GVOGs.hmm"
+	database = "hmm/merged_GVOGs.hmm"
 
 	# path of viralrecall.py file
 	base_dir = Path(__file__).parent.resolve()
