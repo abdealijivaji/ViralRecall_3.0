@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys, os, argparse, time, warnings
 import pandas as pd
+import numpy as np
 from collections import defaultdict, namedtuple
 import Bio
 from Bio import SeqIO
@@ -98,7 +99,25 @@ def count_hits(hits, contigs):
 	return query2hits
 		
 	
-#def make_window()
+def sliding_window_mean(df, col_A, col_B, window_size=15000):
+	"""
+	Calculate the mean of col_A in a variable-size window based on col_B.
+	The window includes all rows where (current B - earliest B in window) <= window_size.
+	"""
+	means = pd.Series(index=df.index, dtype=float)  # Initialize a Series to store means
+	for name, grp in df.groupby('contig',):
+		df = grp #.sort_values(col_B).reset_index(drop=True)
+		B = df[col_B] #to retain index 
+		A = df[col_A] #.values doesnt retain index
+		
+		for i in df.index:
+		# Find the leftmost index where B[i] + B[right] <= window_size
+			right = pd.Series.searchsorted(B, B[i] + window_size/2, side='left')
+			left = pd.Series.searchsorted(B, B[i] - window_size/2, side='left')
+			#print(A[left : right ])
+			means[i] = "%.3g" % A[left : right ].mean()
+			#print(means[i])
+	return means
 	
 
 def run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
@@ -136,11 +155,14 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	#df.to_csv(out_base, sep = '\t', index = False)
 
 	# Now to calculate score on a rolling window
-
+	'''
 	df['rollScore'] = df['bitscore'].rolling(window=15, min_periods= 3, center=True).mean()
 	df['winSumLen'] = df['pstart'].rolling(window=15, min_periods= 3, center=True).max() - df['pstart'].rolling(window=15, min_periods= 3, center=True).min()
 	df['NormRoll'] = (df['rollScore'] * 15000)/ df['winSumLen']
-	print(df)
+	'''
+	#df.groupby(['contig']).apply(sliding_window_mean, col_A='bitscore', col_B='pstart', window_size=window).reset_index(drop=True)
+	df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=5000)
+	#print(df)
 	df.to_csv(out_base + ".tsv", index=False, sep= "\t")
 
 
