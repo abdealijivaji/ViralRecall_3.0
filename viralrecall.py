@@ -1,46 +1,53 @@
 #!/usr/bin/env python
 import sys, os, argparse, time, warnings
 import pandas as pd
-import numpy as np
 from collections import defaultdict, namedtuple
-import Bio
-from Bio import SeqIO
 from pathlib import Path
 import pyrodigal_gv
+import pyrodigal
 from pyhmmer import easel, plan7, hmmer
 import multiprocessing.pool as mp
 from pyfaidx import Fasta
 
-warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
+#warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 
 valid_bases = set('ATCGN')
 
 orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 
-def predict_proteins(input, contigs, outfile):
-	#threads = int(cpus)
+def predict_proteins(input, contigs, outbase):
+	''' 
+	Predict proteins using pyrodigal-gv and returns namedtuples of proteins and their headers 
+	Also writes predictions in CDS, AA, and gff3 formats.
+	'''
+	prot_out = outbase +  ".faa"
+	cds_out = outbase +  ".cds.fasta"
+	gff_out = outbase + ".gff"
+
 	proteins = []
 	header = []
 	Header = namedtuple("Header", ["contig", "query", "pstart", "pend", "pstrand", "gen_code"])
-
-	with open(outfile, "w") as fout :
+	
+	with open(prot_out, "w") as prot, open(cds_out, "w") as cds, open(gff_out, "w") as gff:
 		for seqrecord in contigs:
-			sequence = bytes(str(input[seqrecord]), 'UTF-8')
+			sequence = bytes(str(input[seqrecord]), 'UTF-8') # loading the sequence as bytes
 			genes = orf_finder.find_genes(sequence)
-			genes.write_translations(fout, sequence_id=seqrecord)
+			genes.write_translations(prot, sequence_id=seqrecord)
+			genes.write_genes(cds, sequence_id=seqrecord)
+			genes.write_gff(gff, sequence_id=seqrecord)
 			for n, gene in enumerate(genes, start= 1):
 				aa = gene.translate()
 				prot_id = seqrecord + "_" + str(n)
 				head = Header(seqrecord, prot_id, gene.begin, gene.end, gene.strand, gene.translation_table)
 				header.append(head)
 				proteins.append((prot_id, aa))
-	#print(proteins)
+
 	return proteins, header
 					
 
 alphabet = easel.Alphabet.amino()
 
-def search_with_pyhmmer(proteins, hmm_path):
+def search_with_pyhmmer(proteins, hmm_path, out_base):
 	results = []
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	seqs = []
@@ -50,25 +57,26 @@ def search_with_pyhmmer(proteins, hmm_path):
 	
 	digseqs = easel.DigitalSequenceBlock(alphabet, seqs)
 	
-	
+	hmmout = out_base + ".tblout"
+	tbl_head = b"#                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----\ntarget_name        accession  query_name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc target_description\n"
 	with plan7.HMMFile(hmm_path) as hmm_file:
 		# Convert protein predictions into pyhmmer Sequence objects
 		hits = hmmer.hmmsearch(hmm_file, digseqs, E=1e-5)
-
-		for hitlist in hits:
-			for hit in hitlist:
-				# hit.description = bytes(hit.name.decode().split(None, maxsplit=1)[1], 'UTF-8')
-				if hit.included:
-					Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
-					eval = "%.3g" % hit.evalue
-					results.append(Result(
-						Contig ,
-						hit.name.decode() ,
-						hitlist.query.name.decode(),
-						round(hit.score, 2),
-						eval,
-						# hit.description.decode()
-					))
+		with open(hmmout, 'wb') as outfile:
+			outfile.write(tbl_head)
+			for hitlist in hits:
+				hitlist.write(outfile, header=False) 
+				for hit in hitlist:
+					if hit.included:
+						Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
+						eval = "%.3g" % hit.evalue
+						results.append(Result(
+							Contig ,
+							hit.name.decode() ,
+							hitlist.query.name.decode(),
+							round(hit.score, 2),
+							eval
+						))
 	return results
 
 def get_region(hits, description, contig) :
@@ -115,20 +123,14 @@ def sliding_window_mean(df, col_A, col_B, window_size=15000):
 		# Find the leftmost index where B[i] + B[right] <= window_size
 			left = pd.Series.searchsorted(B, B[i] - window_size/2, side='left')
 			right = pd.Series.searchsorted(B, B[i] + window_size/2, side='left')
-
-			print("left: " + str(left) + " right: " + str(right))
-			print(A[left : right ])
 			means[i] = float("%.3g" % A[left : right ].mean()) #round to 3 decimal places and make it float
-			print(means[i])
 	
 	return means
 	
 
 def run_program(input, out_base, database, window, phagesize, minscore, minhit, evalue, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel):
 	
-	# genome_file = load_sequences(input)
-	#is_DNA(genome_file)
-	#filt_contig_list = filt_contigs(genome_file, phagesize)
+	''' Main function to run ViralRecall '''
 
 	# Using pyfaidx to parse fasta and looping 
 	genome_file = Fasta(input)
@@ -138,14 +140,14 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 		if len(genome_file[contig]) >= phagesize :
 			filt_contig_list.append(contig)
 	
-	prot_out = out_base + ".faa"  
+	  
 
-	proteins, description = predict_proteins(genome_file, filt_contig_list, prot_out)
+	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	desc_df = pd.DataFrame(description)
 	#print(desc_df)
 
 	hmm_dir = database
-	hmm_results = search_with_pyhmmer(proteins, hmm_dir)
+	hmm_results = search_with_pyhmmer(proteins, hmm_dir, out_base)
 	
 	hmmout = out_base + ".hmmout"
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe fuck
