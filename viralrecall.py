@@ -79,18 +79,12 @@ def search_with_pyhmmer(proteins, hmm_path, out_base):
 						))
 	return results
 
-def get_region(hits, description, contig) :
+def get_region(df) :
 	''' To get coordinates of putative viral regions '''
-	viral_contig_reg = defaultdict(list, { k:[] for k in contig})
-
-	start = []
-	end = []
-	for j in description:
+	rollscore = df['rollscore']
+	vreg_index = [indx for indx in rollscore.index if rollscore[indx] > 10 ]
 	
-		for i in hits:
-			if j.query == i.query :
-				start.append(j.pstart)
-				end.append(j.pend)
+	return vreg_index
 	
 	
 	
@@ -162,9 +156,30 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 
 	# Now to calculate score on a rolling window
 	
-	df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=window)
-	#print(df)
-	df.to_csv(out_base + ".tsv", index=False, sep= "\t")
+	#df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=window)
+
+	# converting starts to timestamp index 
+	sub_df = df.loc[df['contig'] == "JTEE01000022.1", ['pstart', 'bitscore']]
+	startList = sub_df['pstart'].to_list()
+	sub_df['pstart'] = pd.to_datetime(startList, unit='s', origin='unix')  # convert to datetime index
+	scores = pd.Series(sub_df['bitscore'].values, index=sec_idx)
+	timedelta = str(window) + 's'  # window size in seconds 
+	dtidx = pd.DatetimeIndex(sub_df['pstart'].array, freq="s")
+	sub_df['pstart'] = dtidx
+	offset = pd.offsets.Second(window)
+	indexer = pd.api.indexers.VariableOffsetWindowIndexer(index = dtidx, offset=offset, min_periods=3, on = "bitscore" ,  center=True)
+	# print(indexer.get_window_bounds)
+	# sub_df['rollscore'] = scores.rolling(window= offset, min_periods=3, center=True).mean()
+	for wndw in sub_df.rolling(indexer).mean():
+		print(wndw)
+	# print(sub_df['rollscore'])
+	# sub_df.to_csv(out_base + ".sub.tsv", index=False, sep= "\t")
+
+	# To extract viral regions, we need to extract regions with scores > threshold (10 for now)
+	for name, grp in df.groupby('contig'):
+		vreg_indx = 1 # get_region(grp)
+		print(vreg_indx)
+		
 
 
 
