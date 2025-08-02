@@ -15,7 +15,7 @@ valid_bases = set('ATCGN')
 
 orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 
-def predict_proteins(input, contigs, outbase):
+def predict_proteins(input, contigs, outbase) -> tuple[list, list]:
 	''' 
 	Predict proteins using pyrodigal-gv and returns namedtuples of proteins and their headers 
 	Also writes predictions in CDS, AA, and gff3 formats.
@@ -47,7 +47,8 @@ def predict_proteins(input, contigs, outbase):
 
 alphabet = easel.Alphabet.amino()
 
-def search_with_pyhmmer(proteins, hmm_path, out_base):
+def search_with_pyhmmer(proteins, hmm_path, out_base) -> list:
+	
 	results = []
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	seqs = []
@@ -102,22 +103,18 @@ def count_hits(hits, contigs):
 	return query2hits
 		
 	
-def sliding_window_mean(df, col_A, col_B, window_size=15000):
+def sliding_window_mean(df : pd.DataFrame, window_size) -> pd.Series:
 	"""
-	Calculate the mean of col_A in a variable-size window based on col_B.
-	The window includes all rows where (current B - earliest B in window) <= window_size.
+	Calculate a rolling mean of the 'bitscore' column in the DataFrame df based on protein start positions.
+	To allow variable window sizes, the 'pstart' column is converted to datetime and used as the index for rolling calculations.
+	Offset is the window size in seconds
 	"""
-	means = pd.Series(0.0, index=df.index, dtype=float)  # Initialize a Series to store means
+	means = pd.Series(0.0, index=df.index, dtype=float)  
 	for name, grp in df.groupby('contig'):
-		df = grp #.sort_values(col_B).reset_index(drop=True)
-		B = df[col_B] #to retain index 
-		A = df[col_A] #.values doesnt retain index
-		
-		for i in df.index:
-		# Find the leftmost index where B[i] + B[right] <= window_size
-			left = pd.Series.searchsorted(B, B[i] - window_size/2, side='left')
-			right = pd.Series.searchsorted(B, B[i] + window_size/2, side='left')
-			means[i] = float("%.3g" % A[left : right ].mean()) #round to 3 decimal places and make it float
+		df = grp.loc[:,['pstart','bitscore']] #.sort_values(col_B).reset_index(drop=True)
+		df['pstart'] = pd.to_datetime(grp['pstart'], unit='s', origin='unix', utc = True)  # convert starts to datetime index
+		rollscr = df.rolling(window=window_size, min_periods=3, center=True, on='pstart').mean()
+		means = means.combine(rollscr['bitscore'], max )
 	
 	return means
 	
@@ -159,21 +156,11 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	#df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=window)
 
 	# converting starts to timestamp index 
-	sub_df = df.loc[df['contig'] == "JTEE01000022.1", ['pstart', 'bitscore']]
-	startList = sub_df['pstart'].to_list()
-	sub_df['pstart'] = pd.to_datetime(startList, unit='s', origin='unix')  # convert to datetime index
-	scores = pd.Series(sub_df['bitscore'].values, index=sec_idx)
-	timedelta = str(window) + 's'  # window size in seconds 
-	dtidx = pd.DatetimeIndex(sub_df['pstart'].array, freq="s")
-	sub_df['pstart'] = dtidx
+	
 	offset = pd.offsets.Second(window)
-	indexer = pd.api.indexers.VariableOffsetWindowIndexer(index = dtidx, offset=offset, min_periods=3, on = "bitscore" ,  center=True)
-	# print(indexer.get_window_bounds)
-	# sub_df['rollscore'] = scores.rolling(window= offset, min_periods=3, center=True).mean()
-	for wndw in sub_df.rolling(indexer).mean():
-		print(wndw)
-	# print(sub_df['rollscore'])
-	# sub_df.to_csv(out_base + ".sub.tsv", index=False, sep= "\t")
+	# Use offset as the window argument for rolling
+	df['rollscore'] = sliding_window_mean(df, offset)
+	df.to_csv(out_base + ".tsv", index=False, sep="\t")
 
 	# To extract viral regions, we need to extract regions with scores > threshold (10 for now)
 	for name, grp in df.groupby('contig'):
