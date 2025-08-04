@@ -176,7 +176,7 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 			vstart = above_threshold['pstart'].astype('int64')[strt_idx]  # start position of the first group
 			if len(grp_index) == 1:
 				
-				end_idx = grp_index[0][-1] + 1 
+				end_idx = grp_index[0][-1] 
 				vend = above_threshold['pend'].astype('int64')[end_idx]  # end position of the first group
 				if vend - vstart >= phagesize:
 					viral_indices[name].append([strt_idx, end_idx])
@@ -184,21 +184,21 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 			else:
 			# If difference between groups is less than 5 proteins and less than 5000 bp
 			# We don't update vstart, 
-				for i in range(len(grp_index)):
+				for i in range(len(grp_index)-1):
 					nxt_strt_idx = grp_index[i+1][0]
-					end_idx = grp_index[i][-1] + 1
+					end_idx = grp_index[i][-1]
 					prot_diff = nxt_strt_idx - end_idx
-					nxt_vstart = above_threshold['pstart'].to_list()[nxt_strt_idx]
-					vend = above_threshold['pend'].to_list()[end_idx]
+					nxt_vstart = above_threshold['pstart'].astype('int64')[nxt_strt_idx]
+					vend = above_threshold['pend'].astype('int64')[end_idx]
 					bp_diff = nxt_vstart - vend
 					if prot_diff > 5 and bp_diff > 5000:
-						viral_indices[name].append([strt_idx, end_idx])
+										
+						if vend - vstart >= phagesize:
+							viral_indices[name].append([strt_idx, end_idx])
 						strt_idx = nxt_strt_idx
-					vend = above_threshold['pend'].astype('int64')[grp_index[i][-1]]					
-					if vend - vstart >= phagesize:
-						viral_indices[name].append([vstart, vend])
-						tally += 1
-			print(grp_index)	
+						vstart = nxt_vstart
+	
+	print(viral_indices)	
 		
 
 
