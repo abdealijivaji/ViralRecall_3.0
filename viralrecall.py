@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-import sys, os, argparse, time, warnings
+from operator import itemgetter
+import sys, os, argparse, time, warnings, itertools
 import pandas as pd
-from collections import defaultdict, namedtuple
+from itertools import groupby, chain
+from collections import defaultdict, namedtuple, Counter
 from pathlib import Path
 import pyrodigal_gv
 import pyrodigal
@@ -92,7 +94,7 @@ def get_region(df) :
 			
 
 def count_hits(hits, contigs):
-	''' Rught now does listing of markers for each contig '''
+	''' Right now does listing of markers for each contig '''
 	query2hits = defaultdict(list)
 	for i in contigs:
 		for j in hits:
@@ -152,9 +154,6 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	df.fillna(float(0), inplace = True)
 
 	# Now to calculate score on a rolling window
-	
-	#df['rollscore'] = sliding_window_mean(df, 'bitscore', 'pstart', window_size=window)
-
 	# converting starts to timestamp index 
 	
 	offset = pd.offsets.Second(window)
@@ -162,16 +161,49 @@ def run_program(input, out_base, database, window, phagesize, minscore, minhit, 
 	df['rollscore'] = sliding_window_mean(df, offset)
 	df.to_csv(out_base + ".tsv", index=False, sep="\t")
 
-	# To extract viral regions, we need to extract regions with scores > threshold (10 for now)
+	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
+	tally = 0  #keep track of how many viralregions we have
+	viral_indices = { i : [] for i in filt_contig_list }  # dictionary to hold indices of viral regions for each contig
 	for name, grp in df.groupby('contig'):
-		vreg_indx = 1 # get_region(grp)
-		print(vreg_indx)
+		above_threshold = grp.loc[grp['rollscore'] > minscore, :]
+		if above_threshold.dropna().empty == False:
+			thresh_index = above_threshold.index
+			grp_index = []
+			for key, group in itertools.groupby(enumerate(thresh_index), key =lambda x: x[0] - x[1]):
+				indices = [*map(itemgetter(1), group)]
+				grp_index.append(indices)
+			strt_idx = grp_index[0][0]  # start of the first group
+			vstart = above_threshold['pstart'].astype('int64')[strt_idx]  # start position of the first group
+			if len(grp_index) == 1:
+				
+				end_idx = grp_index[0][-1] + 1 
+				vend = above_threshold['pend'].astype('int64')[end_idx]  # end position of the first group
+				if vend - vstart >= phagesize:
+					viral_indices[name].append([strt_idx, end_idx])
+				
+			else:
+			# If difference between groups is less than 5 proteins and less than 5000 bp
+			# We don't update vstart, 
+				for i in range(len(grp_index)):
+					nxt_strt_idx = grp_index[i+1][0]
+					end_idx = grp_index[i][-1] + 1
+					prot_diff = nxt_strt_idx - end_idx
+					nxt_vstart = above_threshold['pstart'].to_list()[nxt_strt_idx]
+					vend = above_threshold['pend'].to_list()[end_idx]
+					bp_diff = nxt_vstart - vend
+					if prot_diff > 5 and bp_diff > 5000:
+						viral_indices[name].append([strt_idx, end_idx])
+						strt_idx = nxt_strt_idx
+					vend = above_threshold['pend'].astype('int64')[grp_index[i][-1]]					
+					if vend - vstart >= phagesize:
+						viral_indices[name].append([vstart, vend])
+						tally += 1
+			print(grp_index)	
 		
 
 
-
 	#get_region(hmm_results, description, filt_contig_list)
-	contig_hits = count_hits(hmm_results, filt_contig_list)
+	# contig_hits = count_hits(hmm_results, filt_contig_list)
 	# print(hmm_df)
 	# with open(hmmout, "w") as out:
 	# 	for res in hmm_results:
@@ -188,7 +220,7 @@ def main(argv=None):
 	args_parser.add_argument('-db', '--database', required=False, default="GVOG", help='Viral HMM database to use. Options are "general" for the general VOG db, "GVOG" for the GVOG db, and "marker" for searching only a set of 10 conserved NCLDV markers (good for screening large datasets). See README for details')
 	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15)')
 	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10)')
-	args_parser.add_argument('-s', '--minscore', required=False, default=int(1), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=1)')
+	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=1)')
 	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of viral hits that each viral region must have to be reported (default=4)')
 	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to HMMER3 for the VOG hmmsearch (default=1e-10)')
 	args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
