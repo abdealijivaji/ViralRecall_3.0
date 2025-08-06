@@ -6,3 +6,7 @@ hmm/gvog_annotation.tsv
 .vscode/launch.json
 test_out/test_out.gff
 test_out/test_out.tblout
+hmm/.DS_Store
+
+.DS_Store
+.vscode/settings.json

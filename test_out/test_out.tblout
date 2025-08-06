@@ -1,5 +1,5 @@
 #                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----
-target name        accession  query name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc description of target
+target_name        accession  query_name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc target_description
 JTEE01000022.1_628   -          GVOG03097.trim       -            9.4e-32  106.6   0.0   1.1e-31  106.4   0.0   1.0   1   0   0   1   1   1   1 -
 JTEE01000022.1_468   -          GVOG03156.trim       -            2.6e-11   39.6   2.6   2.3e-07   26.6   0.3   2.1   1   1   1   2   2   2   2 -
 JTEE01000022.1_520   -          GVOG04138.trim       -            5.4e-11   38.4   4.5   4.4e-10   35.4   4.5   1.9   1   1   0   1   1   1   1 -
