@@ -161,7 +161,11 @@ def run_program(input : str,
 	desc_df = pd.DataFrame(description)
 
 	hmm_dir = database
+<<<<<<< HEAD
 	gvog_hmm = "/home/abdeali/packages/ViralRecall_3.0/hmm/gvog_mirus_cat.hmm" # os.path.join(hmm_dir, "gvog.complete.hmm")
+=======
+	gvog_hmm = os.path.join(hmm_dir, "gvog.complete.hmm")
+>>>>>>> 50bc715 (starting to refactor)
 	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
 	
 	hmmout = out_base + ".hmmout"
@@ -271,8 +275,8 @@ def run_program(input : str,
 def main(argv=None):
 
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 2.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=True, help='Input FASTA file (ending in .fna)')
-	args_parser.add_argument('-p', '--project', required=True, help='project name for outputs')
+	args_parser.add_argument('-i', '--input', required=False, help='Input FASTA file (ending in .fna)')
+	args_parser.add_argument('-p', '--project', required=False, help='project name for outputs')
 	#args_parser.add_argument('-db', '--database', required=False, default="GVOG", help='Viral HMM database to use. Options are "general" for the general VOG db, "GVOG" for the GVOG db, and "marker" for searching only a set of 10 conserved NCLDV markers (good for screening large datasets). See README for details')
 	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
 	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
@@ -289,8 +293,13 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
+<<<<<<< HEAD
 	input =  args_parser.input # "/home/abdeali/viralR_test_input/" # 
 	project =  args_parser.project #"/home/abdeali/viralR_test_output/batch_test" #
+=======
+	input =  "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" # args_parser.input
+	project = "/home/abdeali/viralR_test_output/Chlamy_punui" # args_parser.project
+>>>>>>> 50bc715 (starting to refactor)
 	# database = args_parser.database
 	window = int(args_parser.window)*1000 # convert to bp
 	phagesize = int(args_parser.minsize)*1000
