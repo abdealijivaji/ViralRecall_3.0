@@ -199,22 +199,24 @@ def run_program(input : str,
 				
 				end_idx = grp_index[0][-1] 
 				vend = above_threshold['pend'].astype('int64')[end_idx]  # end position of the first group
+				
 				if vend - vstart >= phagesize:
 					viral_indices[name].append([strt_idx, end_idx])
 				
 			else:
-			# If difference between groups is less than 5 proteins and less than 5000 bp
+			# If difference between groups is less than 5 proteins and less than window size (default 15kb)
 			# We don't update vstart, 
-				for i in range(len(grp_index)-1):
-					nxt_strt_idx = grp_index[i+1][0]
-					end_idx = grp_index[i][-1]
+				for i in range(1, len(grp_index)):
+					nxt_strt_idx = grp_index[i][0]
+					end_idx = grp_index[i-1][-1]
 					prot_diff = nxt_strt_idx - end_idx
 					nxt_vstart = above_threshold['pstart'].astype('int64')[nxt_strt_idx]
 					vend = above_threshold['pend'].astype('int64')[end_idx]
 					bp_diff = nxt_vstart - vend
-					if prot_diff > 5 and bp_diff > 5000:
-										
-						if vend - vstart >= phagesize:
+					
+					if prot_diff > 5 and bp_diff > window :
+						unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()			
+						if vend - vstart >= phagesize and len(unq_hit) > 3:
 							viral_indices[name].append([strt_idx, end_idx])
 						strt_idx = nxt_strt_idx
 						vstart = nxt_vstart
