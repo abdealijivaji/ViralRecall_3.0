@@ -161,11 +161,7 @@ def run_program(input : str,
 	desc_df = pd.DataFrame(description)
 
 	hmm_dir = database
-<<<<<<< HEAD
-	gvog_hmm = "/home/abdeali/packages/ViralRecall_3.0/hmm/gvog_mirus_cat.hmm" # os.path.join(hmm_dir, "gvog.complete.hmm")
-=======
 	gvog_hmm = os.path.join(hmm_dir, "gvog.complete.hmm")
->>>>>>> 50bc715 (starting to refactor)
 	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
 	
 	hmmout = out_base + ".hmmout"
@@ -293,13 +289,8 @@ def main(argv=None):
 	args_parser = args_parser.parse_args()
 
 	# set up object names for input/output/database folders
-<<<<<<< HEAD
-	input =  args_parser.input # "/home/abdeali/viralR_test_input/" # 
-	project =  args_parser.project #"/home/abdeali/viralR_test_output/batch_test" #
-=======
 	input =  "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" # args_parser.input
 	project = "/home/abdeali/viralR_test_output/Chlamy_punui" # args_parser.project
->>>>>>> 50bc715 (starting to refactor)
 	# database = args_parser.database
 	window = int(args_parser.window)*1000 # convert to bp
 	phagesize = int(args_parser.minsize)*1000
