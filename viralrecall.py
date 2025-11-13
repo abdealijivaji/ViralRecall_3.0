@@ -4,89 +4,18 @@ import sys, os, argparse, itertools
 import pandas as pd
 from collections import defaultdict, namedtuple
 from pathlib import Path
-import pyrodigal_gv
-from pyhmmer import easel, plan7, hmmer
+
 import multiprocessing.pool as mp
 from pyfaidx import Fasta
+from src.proteins import *
+from src.utils import *
 
 #warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 
 valid_bases = set('ATCGN')
 
-orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
+# orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
 
-def filt_fasta(phagesize : int, genome_file: Fasta) -> list:
-    filt_contig_list = []
-	
-    for contig in genome_file.keys():
-     if len(genome_file[contig]) >= phagesize :
-      filt_contig_list.append(contig)
-    return filt_contig_list
-
-def predict_proteins(input : Fasta, contigs : list[str] , outbase: str) -> tuple[list, list]:
-	''' 
-	Predict proteins using pyrodigal-gv and returns namedtuples of proteins and their headers 
-	Also writes predictions in CDS, AA, and gff3 formats.
-	'''
-	prot_out = outbase +  ".faa"
-	cds_out = outbase +  ".cds.fasta"
-	gff_out = outbase + ".gff"
-
-	proteins : list = []
-	header : list[tuple] = []
-	Header = namedtuple("Header", ["contig", "query", "pstart", "pend", "pstrand", "gen_code"])
-	
-	with open(prot_out, "w") as prot, open(cds_out, "w") as cds, open(gff_out, "w") as gff:
-		for seqrecord in contigs:
-			sequence = bytes(str(input[seqrecord]), 'UTF-8') # loading the sequence as bytes
-			genes = orf_finder.find_genes(sequence)
-			genes.write_translations(prot, sequence_id=seqrecord)
-			genes.write_genes(cds, sequence_id=seqrecord)
-			genes.write_gff(gff, sequence_id=seqrecord)
-			for n, gene in enumerate(genes, start= 1):
-				aa = gene.translate()
-				prot_id = seqrecord + "_" + str(n)
-				head = Header(seqrecord, prot_id, gene.begin, gene.end, gene.strand, gene.translation_table)
-				header.append(head)
-				# proteins.append((prot_id, aa))
-				if len(aa) < 100000: # HMMER can't take proteins longer than 100k aa
-					proteins.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(amino))
-	return proteins, header
-					
-
-amino = easel.Alphabet.amino()
-tbl_head = b"#                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----\ntarget_name        accession  query_name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc target_description\n"
-
-def search_with_pyhmmer(proteins: list, hmm_path: str, out_base: str, evalue: float) -> list[tuple]:
-	
-	results : list[tuple] = []
-	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
-	
-	digseqs = easel.DigitalSequenceBlock(amino, proteins)
-	
-	hmmout = out_base + ".tblout"
-	
-	with plan7.HMMFile(hmm_path) as hmm_file:
-		# Convert protein predictions into pyhmmer Sequence objects
-		# for hmm in hmm_file:
-		# 	print(hmm.cutoffs)
-		hits = hmmer.hmmsearch(hmm_file, digseqs, E=evalue)
-		with open(hmmout, 'wb') as outfile:
-			outfile.write(tbl_head)
-			for hitlist in hits:
-				hitlist.write(outfile, header=False) 
-				for hit in hitlist:
-					if hit.included:
-						Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
-						eval = "%.3g" % hit.evalue
-						results.append(Result(
-							Contig ,
-							hit.name.decode() ,
-							hitlist.query.name.decode(),
-							round(hit.score, 2),
-							eval
-						))
-	return results
 
 def get_region(df) :
 	''' To get coordinates of putative viral regions '''
@@ -137,14 +66,12 @@ def run_program(input : str,
 	infile_name = os.path.basename(input)
 	out_dir = os.path.dirname(out_base)
 	print("Running viralrecall on "+ infile_name + " and output will be deposited in "+ out_dir)
+	
 	# Using pyfaidx to parse fasta and looping 
 	genome_file = Fasta(input)
-	seq_for_check = str(genome_file[0][:1000]).upper()
-	set_DNA = set(seq_for_check)
-	check_DNA = set(seq_for_check).issubset(valid_bases)
-	if check_DNA == False:
+	
+	if is_DNA == False:
 		print("{} does not look like a valid DNA sequence. Please check the input file.".format(infile_name))
-
 
 	filt_contig_list = filt_fasta(phagesize, genome_file)
 	
@@ -270,33 +197,17 @@ def run_program(input : str,
 
 def main(argv=None):
 
-	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 2.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=False, help='Input FASTA file (ending in .fna)')
-	args_parser.add_argument('-p', '--project', required=False, help='project name for outputs')
-	#args_parser.add_argument('-db', '--database', required=False, default="GVOG", help='Viral HMM database to use. Options are "general" for the general VOG db, "GVOG" for the GVOG db, and "marker" for searching only a set of 10 conserved NCLDV markers (good for screening large datasets). See README for details')
-	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
-	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
-	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=1)')
-	# args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of viral hits that each viral region must have to be reported (default=4)')
-	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to HMMER3 for the VOG hmmsearch (default=1e-10)')
-	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
-	# args_parser.add_argument('-t', '--cpus', required=False, default=str(1), help='number of cpus to use for the HMMER3 search')
-	# args_parser.add_argument('-b', '--batch', type=bool, default=False, const=True, nargs='?', help='Batch mode: implies the input is a folder of .fna files that each will be run iteratively')
-	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
-	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
-	# args_parser.add_argument('-f', '--figplot', type=bool, default=False, const=True, nargs='?', help='Specify this flag if you would like a plot of the viral-like regions with the output')
-	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 2.1')
-	args_parser = args_parser.parse_args()
+	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =  "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" # args_parser.input
-	project = "/home/abdeali/viralR_test_output/Chlamy_punui" # args_parser.project
+	input =  args_list.input # "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" #
+	project = args_list.project # "/home/abdeali/viralR_test_output/Chlamy_punui" # 
 	# database = args_parser.database
-	window = int(args_parser.window)*1000 # convert to bp
-	phagesize = int(args_parser.minsize)*1000
-	minscore = int(args_parser.minscore)
+	window = int(args_list.window)*1000 # convert to bp
+	phagesize = int(args_list.minsize)*1000
+	minscore = int(args_list.minscore)
 	# minhit = int(args_parser.minhit)
-	evalue = float(args_parser.evalue)
+	evalue = float(args_list.evalue)
 	# cpus = args_parser.cpus
 	# plotflag = args_parser.figplot
 	# redo = args_parser.redo
@@ -346,7 +257,6 @@ def main(argv=None):
 	else:
 		print("Input is not a valid directory or file. Please check the input path.")
 	
-	return 0
 
 if __name__ == '__main__':
 	status = main()

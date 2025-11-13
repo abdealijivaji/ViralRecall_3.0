@@ -5,6 +5,9 @@ from pyfaidx import Fasta
 
 
 orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
+amino = easel.Alphabet.amino()
+
+
 
 def predict_proteins(input : Fasta, contigs : list[str] , outbase: str) -> tuple[list, list]:
 	''' 
@@ -36,7 +39,6 @@ def predict_proteins(input : Fasta, contigs : list[str] , outbase: str) -> tuple
 					proteins.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(amino))
 	return proteins, header
 
-amino = easel.Alphabet.amino()
 tbl_head = b"#                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----\ntarget_name        accession  query_name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc target_description\n"
 
 def search_with_pyhmmer(proteins: list, hmm_path: str, out_base: str, evalue: float) -> list[tuple]:
