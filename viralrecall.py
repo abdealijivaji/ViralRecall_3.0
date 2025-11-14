@@ -10,19 +10,29 @@ from pyfaidx import Fasta
 from src.proteins import *
 from src.utils import *
 
-#warnings.simplefilter('ignore', Bio.BiopythonDeprecationWarning)
 
-valid_bases = set('ATCGN')
-
-# orf_finder = pyrodigal_gv.ViralGeneFinder(meta=True)
-
-
-def get_region(df) :
-	''' To get coordinates of putative viral regions '''
-	rollscore = df['rollscore']
-	vreg_index = [indx for indx in rollscore.index if rollscore[indx] > 10 ]
+def parse_args(argv=None) :
 	
-	return vreg_index
+	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 3.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
+	args_parser.add_argument('-i', '--input', required=False, help='Input FASTA file (ending in .fna)')
+	args_parser.add_argument('-p', '--project', required=False, help='project name for outputs')
+	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
+	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
+	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=1)')
+	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to HMMER3 for the VOG hmmsearch (default=1e-10)')
+
+	# args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of viral hits that each viral region must have to be reported (default=4)')
+	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
+	# args_parser.add_argument('-t', '--cpus', required=False, default=str(1), help='number of cpus to use for the HMMER3 search')
+	# args_parser.add_argument('-b', '--batch', type=bool, default=False, const=True, nargs='?', help='Batch mode: implies the input is a folder of .fna files that each will be run iteratively')
+	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
+	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
+	# args_parser.add_argument('-f', '--figplot', type=bool, default=False, const=True, nargs='?', help='Specify this flag if you would like a plot of the viral-like regions with the output')
+	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 2.1')
+	args_parser = args_parser.parse_args()
+
+	return args_parser
+
 		
 
 def count_hits(hits, contigs):
@@ -111,42 +121,7 @@ def run_program(input : str,
 	df.to_csv(out_base + ".tsv", index=False, sep="\t")
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
-	viral_indices = { i : [] for i in filt_contig_list }  # dictionary to hold indices of viral regions for each contig
-	for name, grp in df.groupby('contig'):
-		above_threshold = grp.loc[grp['rollscore'] > minscore, :]
-		if above_threshold.dropna().empty == False:
-			thresh_index = above_threshold.index
-			grp_index = []
-			for key, group in itertools.groupby(enumerate(thresh_index), key =lambda x: x[0] - x[1]):
-				indices = [*map(itemgetter(1), group)]
-				grp_index.append(indices)
-			strt_idx = grp_index[0][0]  # start of the first group
-			vstart = above_threshold['pstart'].astype('int64')[strt_idx]  # start position of the first group
-			if len(grp_index) == 1:
-				
-				end_idx = grp_index[0][-1] 
-				vend = above_threshold['pend'].astype('int64')[end_idx]  # end position of the first group
-				
-				if vend - vstart >= phagesize:
-					viral_indices[name].append([strt_idx, end_idx])
-				
-			else:
-			# If difference between groups is less than 5 proteins and less than window size (default 15kb)
-			# We don't update vstart, 
-				for i in range(1, len(grp_index)):
-					nxt_strt_idx = grp_index[i][0]
-					end_idx = grp_index[i-1][-1]
-					prot_diff = nxt_strt_idx - end_idx
-					nxt_vstart = above_threshold['pstart'].astype('int64')[nxt_strt_idx]
-					vend = above_threshold['pend'].astype('int64')[end_idx]
-					bp_diff = nxt_vstart - vend
-					
-					if prot_diff > 5 and bp_diff > window :
-						unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()			
-						if vend - vstart >= phagesize and len(unq_hit) > 3:
-							viral_indices[name].append([strt_idx, end_idx])
-						strt_idx = nxt_strt_idx
-						vstart = nxt_vstart
+	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df)
 		
 	viral_df = pd.DataFrame()
 	for key, value in viral_indices.items():
@@ -195,13 +170,15 @@ def run_program(input : str,
 	return
 
 
+
+
 def main(argv=None):
 
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =  args_list.input # "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" #
-	project = args_list.project # "/home/abdeali/viralR_test_output/Chlamy_punui" # 
+	input =   "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" # args_list.input #
+	project =  "/home/abdeali/viralR_test_output/Chlamy_punui" # args_list.project #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
