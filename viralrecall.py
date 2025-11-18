@@ -118,6 +118,7 @@ def run_program(input : str,
 	offset = pd.offsets.Second(window)
 	# Use offset as the window argument for rolling
 	df['rollscore'] = sliding_window_mean(df, offset)
+	df = merge_annot(df)
 	df.to_csv(out_base + ".tsv", index=False, sep="\t")
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)

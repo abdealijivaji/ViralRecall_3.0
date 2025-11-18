@@ -74,3 +74,12 @@ def extract_reg(window, phagesize, minscore, filt_contig_list, df):
 				strt_idx = nxt_strt_idx
 				vstart = nxt_vstart
 	return viral_indices
+
+
+
+def merge_annot(df: pd.DataFrame) -> pd.DataFrame :
+	full_tab = pd.read_table("hmm/gvog_annotation.tsv", delimiter="\t")
+	annot = full_tab.loc[:, ["GVOG", "NCVOG_descs"]]
+	annot = annot.rename(columns={'GVOG':'HMM_hit'})
+	df = df.merge(annot, on = 'HMM_hit', how='left')
+	return df
