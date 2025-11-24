@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-from operator import itemgetter
-import sys, os, argparse, itertools
-import pandas as pd
-from collections import defaultdict, namedtuple
-from pathlib import Path
 
+import argparse
+import pandas as pd
+from collections import namedtuple
+from pathlib import Path
 import multiprocessing.pool as mp
 from pyfaidx import Fasta
 from src.proteins import *
 from src.utils import *
+from src.vreg_annot import *
+
 
 
 def parse_args(argv=None) :
@@ -23,7 +24,7 @@ def parse_args(argv=None) :
 
 	# args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of viral hits that each viral region must have to be reported (default=4)')
 	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
-	# args_parser.add_argument('-t', '--cpus', required=False, default=str(1), help='number of cpus to use for the HMMER3 search')
+	args_parser.add_argument('-t', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
 	# args_parser.add_argument('-b', '--batch', type=bool, default=False, const=True, nargs='?', help='Batch mode: implies the input is a folder of .fna files that each will be run iteratively')
 	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
 	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
@@ -35,37 +36,13 @@ def parse_args(argv=None) :
 
 		
 
-def count_hits(hits, contigs):
-	''' Right now does listing of markers for each contig '''
-	query2hits = defaultdict(list)
-	for i in contigs:
-		for j in hits:
-			if i == j.contig:
-				marker_score = j.HMM_hit + ": " + str(j.bitscore)
-				query2hits[i].append(marker_score)
 
-	return query2hits
-		
-	
-def sliding_window_mean(df : pd.DataFrame, window_size) -> pd.Series:
-	"""
-	Calculate a rolling mean of the 'bitscore' column in the DataFrame df based on protein start positions.
-	To allow variable window sizes, the 'pstart' column is converted to datetime and used as the index for rolling calculations.
-	Offset is the window size in seconds
-	"""
-	means = pd.Series(0.0, index=df.index, dtype=float)  
-	for name, grp in df.groupby('contig'):
-		df = grp.loc[:,['pstart','bitscore']] #.sort_values(col_B).reset_index(drop=True)
-		df['pstart'] = pd.to_datetime(grp['pstart'], unit='s', origin='unix', utc = True)  # convert starts to datetime index
-		rollscr = df.rolling(window=window_size, min_periods=3, center=True, on='pstart').mean()
-		means = means.combine(rollscr['bitscore'], max )
-	
-	return means
+
 	
 
-def run_program(input : str, 
-				out_base : str,
-				database : str, 
+def run_program(input : Path, 
+				out_base : Path,
+				database : Path, 
 				window: int, 
 				phagesize: int, 
 				minscore: int, 
@@ -73,35 +50,41 @@ def run_program(input : str,
 	
 	''' Main function to run ViralRecall '''
 
-	infile_name = os.path.basename(input)
-	out_dir = os.path.dirname(out_base)
-	print("Running viralrecall on "+ infile_name + " and output will be deposited in "+ out_dir)
+
+	
 	
 	# Using pyfaidx to parse fasta and looping 
-	genome_file = Fasta(input)
+	try :
+		genome_file = Fasta(input)
+		is_DNA(genome_file)
+		#filt_contig_list = filt_fasta(phagesize, genome_file)
+	except ValueError:
+		raise ValueError(f"Input file {input.name} is not in Fasta format. Please check input file")
+	except Exception:
+		raise Exception(f"{input.name} does not look like a valid DNA sequence. Please check input file")
+
 	
-	if is_DNA == False:
-		print("{} does not look like a valid DNA sequence. Please check the input file.".format(infile_name))
+	# if not is_DNA(genome_file) :
+	# 	print(f"{input.name} does not look like a valid DNA sequence. Please check input file")
+
+	print(f"Running viralrecall on {input.name} and output will be deposited in {out_base.parent}")
 
 	filt_contig_list = filt_fasta(phagesize, genome_file)
 	
 	if not filt_contig_list:
-		print("No contigs longer than the minimum phage size of {phagesize} bp were found in the input file.\n" \
+		print(f"No contigs longer than the minimum phage size of {phagesize} bp were found in {input.name}.\n" \
 		" Not proceeding with the genome. Change phagesize parameter to a smaller value if needed.")
 		return
-	if os.path.isdir(out_dir) == False:
-		os.mkdir(out_dir)
 
 	vir_summary = []
 	Summary = namedtuple("Summary", ["file", "contig", "contig_length", "num_viral_region", "vstart", "vend", "vir_length", "num_prots", "num_viral_hits", "score"])
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	desc_df = pd.DataFrame(description)
 
-	hmm_dir = database
-	gvog_hmm = os.path.join(hmm_dir, "gvog.complete.hmm")
+	gvog_hmm = database / "gvog_mirus_cat.hmm"
 	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
 	
-	hmmout = out_base + ".hmmout"
+	hmmout = out_base.with_suffix(".hmmout")
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
 
@@ -119,7 +102,7 @@ def run_program(input : str,
 	# Use offset as the window argument for rolling
 	df['rollscore'] = sliding_window_mean(df, offset)
 	df = merge_annot(df)
-	df.to_csv(out_base + ".tsv", index=False, sep="\t")
+	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df)
@@ -136,11 +119,11 @@ def run_program(input : str,
 				vreg_head : str = genome_file[key][vstart:vend].fancy_name # type: ignore
 				vreg_seq : str = genome_file[key][vstart:vend].seq # type: ignore
 				# print(type(vreg_head))
-				vreg_file = os.path.join(out_dir, f"{key}_vregion_{idx}.fna")
+				vreg_file = out_base.parent / f"{key}_vregion_{idx}.fna"
 				with open(vreg_file, "w") as out:
 					out.write(">" + vreg_head + "\n")
 					out.write(vreg_seq)
-				vir_summary.append(Summary(file=infile_name,
+				vir_summary.append(Summary(file=input.name,
 							   contig=key,
 							   contig_length= len(genome_file[key][:].seq), # type: ignore
 							   num_viral_region= f"vregion_{idx}",
@@ -151,7 +134,7 @@ def run_program(input : str,
 							   num_viral_hits= num_hits ,
 							   score= vregion_df["bitscore"].mean()))
 		else:
-			vir_summary.append(Summary(file=infile_name,
+			vir_summary.append(Summary(file=input.name,
 							   contig=key,
 							   contig_length= len(genome_file[key][:].seq), # type: ignore
 							   num_viral_region= "no viral regions detected",
@@ -161,13 +144,13 @@ def run_program(input : str,
 							   num_prots= "NA",
 							   num_viral_hits= "NA",
 							   score= str(0)))
-	summ_file = out_base + "_summary.tsv"
+	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
 	summ_df.to_csv(summ_file, index=False, sep= "\t")
 		
-	vannot = out_base + "_viralregions.annot.tsv"
+	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
 	viral_df.to_csv(vannot, index=False, sep= "\t")
-	print(f"{infile_name} finished")
+	print(f"{input.name} finished")
 	return
 
 
@@ -186,50 +169,49 @@ def main(argv=None):
 	minscore = int(args_list.minscore)
 	# minhit = int(args_parser.minhit)
 	evalue = float(args_list.evalue)
-	# cpus = args_parser.cpus
+	cpus = args_list.cpus
 	# plotflag = args_parser.figplot
 	# redo = args_parser.redo
 	# contiglevel = args_parser.contiglevel
 	# flanking = args_parser.flanking
 	# batch = args_parser.batch
 	
-	input = os.path.expanduser(input) 
-	project = os.path.expanduser(project) 
+	input = Path(input).expanduser() 
+	project = Path(project).expanduser() 
 	
-	database = "/home/abdeali/GVOGs/"
+	 # path of viralrecall.py file
+	database = Path(__file__).parent / "hmm"
 	
-	base_dir = os.path.dirname(__file__) # path of viralrecall.py file
-	database = os.path.join(base_dir, database)
-	
-	project = project.rstrip("/")
+	# project = project.rstrip("/")
 
-	existence = os.path.exists(input)
-	indir = os.path.isdir(input)
+	existence = input.exists()
+	indir = input.is_dir()
 
+	cpus = mp_cpu(cpus)
 	if indir and existence:
-		if os.path.isdir(project):
-			pass
-		else:
-			os.mkdir(project)
+		if check_directory_permissions(input) == False :
+			print(f"Insufficient read/write permissions for {input} \nQuitting")
+			return
 		
-		files = os.scandir(input)
-		file_list = [i.name for i in files if i.name.endswith('.fna') or i.name.endswith('.fasta') or i.name.endswith('.fa')]
+		project.mkdir(exist_ok=True)
+		
+		file_list = [i.name for i in input.iterdir() if i.name.endswith('.fna') or i.name.endswith('.fasta') or i.name.endswith('.fa')]
 		arg_list : list[tuple]= []
 		for i in file_list:
 			# Remove suffix before creating directory
-			dir_name =  Path(i).with_suffix('')
-			new_project = os.path.join(project, dir_name)
-			out_base = os.path.join(new_project, dir_name)
-			newinput = os.path.join(input, i)
+			dir_name =  Path(i).stem
+			new_project = project / dir_name
+			out_base = new_project / dir_name
+			newinput = input / i
 			arg_list.append((newinput, out_base, database, window, phagesize, minscore, evalue)) 
 		
-		with mp.Pool() as pool:
+		with mp.Pool(cpus) as pool:
 			pool.starmap(run_program, arg_list)
 			
 
 	elif existence and not indir:
 		
-		out_base = os.path.join(project, os.path.basename(project)) 
+		out_base = project / input.stem
 		run_program(input, out_base, database, window, phagesize, minscore, evalue) # , minhit, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel
 	
 	else:
@@ -237,6 +219,6 @@ def main(argv=None):
 	
 
 if __name__ == '__main__':
-	status = main()
-	sys.exit(status)
+	main()
+	
 
