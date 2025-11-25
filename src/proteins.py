@@ -64,11 +64,11 @@ def search_with_pyhmmer(proteins: list,
 		# Convert protein predictions into pyhmmer Sequence objects
 		# for hmm in hmm_file:
 		# 	print(hmm.cutoffs)
-		hits = hmmer.hmmsearch(hmm_file, digseqs, E=evalue)
+		hits = list(hmmer.hmmsearch(hmm_file, digseqs, E=evalue))
 		with open(hmmout, 'wb') as outfile:
-			outfile.write(tbl_head)
+			#outfile.write(tbl_head)
 			for hitlist in hits:
-				hitlist.write(outfile, header=False) 
+				hitlist.write(outfile, header=True) 
 				for hit in hitlist:
 					if hit.included:
 						Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]

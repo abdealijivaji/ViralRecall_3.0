@@ -5,7 +5,7 @@ import pandas as pd
 from collections import namedtuple
 from pathlib import Path
 import multiprocessing.pool as mp
-from pyfaidx import Fasta
+# from pyfaidx import Fasta, FastaIndexingError
 from src.proteins import *
 from src.utils import *
 from src.vreg_annot import *
@@ -23,7 +23,7 @@ def parse_args(argv=None) :
 	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
 	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
 	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
-	args_parser.add_argument('-t', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
+	args_parser.add_argument('-c', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
 	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
 	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
 	# args_parser.add_argument('-f', '--figplot', type=bool, default=False, const=True, nargs='?', help='Specify this flag if you would like a plot of the viral-like regions with the output')
@@ -31,11 +31,6 @@ def parse_args(argv=None) :
 	args_parser = args_parser.parse_args()
 
 	return args_parser
-
-		
-
-
-
 	
 
 def run_program(input : Path, 
@@ -48,21 +43,9 @@ def run_program(input : Path,
 				minhit: int) : # , minhit, cpus,  plotflag, redo, flanking, batch, summary_file, contiglevel
 	
 	''' Main function to run ViralRecall '''
-	
-	# Using pyfaidx to parse fasta and looping 
-	try :
-		genome_file = Fasta(input)
-		is_DNA(genome_file)
-		#filt_contig_list = filt_fasta(phagesize, genome_file)
-	except ValueError:
-		raise ValueError(f"Input file {input.name} is not in Fasta format. Please check input file")
-	except Exception:
-		raise Exception(f"{input.name} does not look like a valid DNA sequence. Please check input file")
 
+	genome_file = load_genome(input)
 	
-	# if not is_DNA(genome_file) :
-	# 	print(f"{input.name} does not look like a valid DNA sequence. Please check input file")
-
 	print(f"Running viralrecall on {input.name} and output will be deposited in {out_base.parent}")
 	out_base.parent.mkdir(exist_ok=True)
 
@@ -78,7 +61,7 @@ def run_program(input : Path,
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	desc_df = pd.DataFrame(description)
 
-	gvog_hmm = Path("/Users/ali/aylward_lab/viralrecall/hmm/gvog.hmm") #database / "gvog_mirus_cat.hmm"
+	gvog_hmm = database / "gvog_mirus_cat.hmm"
 	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
 	
 	hmmout = out_base.with_suffix(".hmmout")
@@ -159,8 +142,8 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =   "/Users/ali/ViralRecall_3.0/test_input/Chlamy_punui_contig.fna" # args_list.input #
-	project =  "/Users/ali/ViralRecall_3.0/test_out/Chlamy_punui" # args_list.project #
+	input =   "~/viralR_test_input/Chlamy_punui_contig.fna" # args_list.input #
+	project =  "~/viralR_test_output/Chlamy_punui" # args_list.project #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
@@ -179,7 +162,7 @@ def main(argv=None):
 	
 	 # path of viralrecall.py file
 	database = Path(__file__).parent / "hmm"
-	
+	prep_hmm(database)
 	# project = project.rstrip("/")
 
 	existence = input.exists()
@@ -193,7 +176,10 @@ def main(argv=None):
 		
 		project.mkdir(exist_ok=True)
 		
-		file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
+		try :
+			file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
+		except :
+			raise FileNotFoundError(f"Input Directory : {input}, does not contain genome fasta files. Quitting")
 		arg_list : list[tuple]= []
 		for i in file_list:
 			# Remove suffix before creating directory

@@ -20,11 +20,11 @@ def sliding_window_mean(df : pd.DataFrame, window_size) -> pd.Series:
 	
 	return means
 
-def above_threshold_ind(rollscore : pd.Series[float], minscore : int) -> pd.Series[bool]: 
-	bool_array : pd.Series[bool] = rollscore > minscore
+def above_threshold_ind(rollscore : pd.Series, minscore : int) -> pd.Series: 
+	bool_array : pd.Series = rollscore > minscore
 	return bool_array
 
-def contiguous_true_ranges_numpy(bool_array : pd.Series[bool]) -> list[tuple[int, int]]:
+def contiguous_true_ranges_numpy(bool_array : pd.Series) -> list[tuple[int, int]]:
 	data = np.array(bool_array)
 	edges = np.diff(bool_array.astype(int))
 	starts = np.where(edges == 1)[0] + 1
