@@ -1,4 +1,3 @@
-import os
 from collections import defaultdict
 from pathlib import Path
 import numpy as np
@@ -21,13 +20,13 @@ def sliding_window_mean(df : pd.DataFrame, window_size) -> pd.Series:
 	
 	return means
 
-def above_threshold_ind(rollscore : pd.Series, minscore) :
-	bool_array : list = rollscore > minscore
+def above_threshold_ind(rollscore : pd.Series[float], minscore : int) -> pd.Series[bool]: 
+	bool_array : pd.Series[bool] = rollscore > minscore
 	return bool_array
 
-def contiguous_true_ranges_numpy(data):
-	data = np.array(data)
-	edges = np.diff(data.astype(int))
+def contiguous_true_ranges_numpy(bool_array : pd.Series[bool]) -> list[tuple[int, int]]:
+	data = np.array(bool_array)
+	edges = np.diff(bool_array.astype(int))
 	starts = np.where(edges == 1)[0] + 1
 	ends = np.where(edges == -1)[0]
 	if data[0]:
@@ -37,9 +36,12 @@ def contiguous_true_ranges_numpy(data):
 	return list(zip(starts, ends))
 
 
-def extract_reg(window, phagesize, minscore, filt_contig_list, df):
+def extract_reg(window : int, phagesize : int, 
+				minscore : int, filt_contig_list: list[str], 
+				df : pd.DataFrame , minhit : int) -> dict:
 	viral_indices = { i : [] for i in filt_contig_list }  # dictionary to hold indices of viral regions for each contig
 	for name, grp in df.groupby('contig'):
+		name = str(name)
 		above_threshold = above_threshold_ind(grp['rollscore'], minscore)
 		
 		viral_ranges = contiguous_true_ranges_numpy(above_threshold)
@@ -67,7 +69,7 @@ def extract_reg(window, phagesize, minscore, filt_contig_list, df):
 						
 			if prot_diff > 5 and bp_diff > window :
 				unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()			
-				if vend - vstart >= phagesize and len(unq_hit) > 3:
+				if vend - vstart >= phagesize and len(unq_hit) > minhit:
 					viral_indices[name].append([strt_idx, end_idx])
 				strt_idx = nxt_strt_idx
 				vstart = nxt_vstart

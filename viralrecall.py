@@ -15,21 +15,19 @@ from src.vreg_annot import *
 def parse_args(argv=None) :
 	
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 3.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=False, help='Input FASTA file (ending in .fna)')
-	args_parser.add_argument('-p', '--project', required=False, help='project name for outputs')
+	args_parser.add_argument('-i', '--input', required=False, help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
+	args_parser.add_argument('-o', '--outdir', required=False, help='Output directory name')
 	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
 	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
-	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=1)')
-	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to HMMER3 for the VOG hmmsearch (default=1e-10)')
-
-	# args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of viral hits that each viral region must have to be reported (default=4)')
+	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
+	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
+	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
 	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
 	args_parser.add_argument('-t', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
-	# args_parser.add_argument('-b', '--batch', type=bool, default=False, const=True, nargs='?', help='Batch mode: implies the input is a folder of .fna files that each will be run iteratively')
 	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
 	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
 	# args_parser.add_argument('-f', '--figplot', type=bool, default=False, const=True, nargs='?', help='Specify this flag if you would like a plot of the viral-like regions with the output')
-	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 2.1')
+	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 3.0')
 	args_parser = args_parser.parse_args()
 
 	return args_parser
@@ -46,12 +44,10 @@ def run_program(input : Path,
 				window: int, 
 				phagesize: int, 
 				minscore: int, 
-				evalue: float) : # , minhit, cpus,  plotflag, redo, flanking, batch, summary_file, contiglevel
+				evalue: float,
+				minhit: int) : # , minhit, cpus,  plotflag, redo, flanking, batch, summary_file, contiglevel
 	
 	''' Main function to run ViralRecall '''
-
-
-	
 	
 	# Using pyfaidx to parse fasta and looping 
 	try :
@@ -68,6 +64,7 @@ def run_program(input : Path,
 	# 	print(f"{input.name} does not look like a valid DNA sequence. Please check input file")
 
 	print(f"Running viralrecall on {input.name} and output will be deposited in {out_base.parent}")
+	out_base.parent.mkdir(exist_ok=True)
 
 	filt_contig_list = filt_fasta(phagesize, genome_file)
 	
@@ -81,7 +78,7 @@ def run_program(input : Path,
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	desc_df = pd.DataFrame(description)
 
-	gvog_hmm = database / "gvog_mirus_cat.hmm"
+	gvog_hmm = Path("/Users/ali/aylward_lab/viralrecall/hmm/gvog.hmm") #database / "gvog_mirus_cat.hmm"
 	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
 	
 	hmmout = out_base.with_suffix(".hmmout")
@@ -105,7 +102,8 @@ def run_program(input : Path,
 	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
-	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df)
+	
+	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 		
 	viral_df = pd.DataFrame()
 	for key, value in viral_indices.items():
@@ -161,13 +159,13 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =   "/home/abdeali/viralR_test_input/Chlamy_punui_contig.fna" # args_list.input #
-	project =  "/home/abdeali/viralR_test_output/Chlamy_punui" # args_list.project #
+	input =   "/Users/ali/ViralRecall_3.0/test_input/Chlamy_punui_contig.fna" # args_list.input #
+	project =  "/Users/ali/ViralRecall_3.0/test_out/Chlamy_punui" # args_list.project #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
 	minscore = int(args_list.minscore)
-	# minhit = int(args_parser.minhit)
+	minhit = int(args_list.minhit)
 	evalue = float(args_list.evalue)
 	cpus = args_list.cpus
 	# plotflag = args_parser.figplot
@@ -195,7 +193,7 @@ def main(argv=None):
 		
 		project.mkdir(exist_ok=True)
 		
-		file_list = [i.name for i in input.iterdir() if i.name.endswith('.fna') or i.name.endswith('.fasta') or i.name.endswith('.fa')]
+		file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
 		arg_list : list[tuple]= []
 		for i in file_list:
 			# Remove suffix before creating directory
@@ -203,7 +201,7 @@ def main(argv=None):
 			new_project = project / dir_name
 			out_base = new_project / dir_name
 			newinput = input / i
-			arg_list.append((newinput, out_base, database, window, phagesize, minscore, evalue)) 
+			arg_list.append((newinput, out_base, database, window, phagesize, minscore, evalue, minhit)) 
 		
 		with mp.Pool(cpus) as pool:
 			pool.starmap(run_program, arg_list)
@@ -212,7 +210,7 @@ def main(argv=None):
 	elif existence and not indir:
 		
 		out_base = project / input.stem
-		run_program(input, out_base, database, window, phagesize, minscore, evalue) # , minhit, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel
+		run_program(input, out_base, database, window, phagesize, minscore, evalue, minhit) # , minhit, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel
 	
 	else:
 		print("Input is not a valid directory or file. Please check the input path.")
