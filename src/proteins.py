@@ -3,6 +3,7 @@ from pathlib import Path
 from pyhmmer import easel, plan7, hmmer
 from collections import defaultdict, namedtuple
 from pyfaidx import Fasta
+from itertools import chain
 
 
 
@@ -50,34 +51,35 @@ tbl_head = b"#                                                               ---
 
 def search_with_pyhmmer(proteins: list, 
 						hmm_path: Path, 
-						out_base: Path, 
-						evalue: float) -> list[tuple]:
+						evalue: float) :
 	
-	results : list[tuple] = []
-	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	
 	digseqs = easel.DigitalSequenceBlock(amino, proteins)
 	
-	hmmout = out_base.with_suffix(".tblout")
-	
 	with plan7.HMMFile(hmm_path) as hmm_file:
-		# Convert protein predictions into pyhmmer Sequence objects
-		# for hmm in hmm_file:
-		# 	print(hmm.cutoffs)
+		print(hmm_file.is_pressed())
 		hits = list(hmmer.hmmsearch(hmm_file, digseqs, E=evalue))
-		with open(hmmout, 'wb') as outfile:
-			#outfile.write(tbl_head)
-			for hitlist in hits:
-				hitlist.write(outfile, header=True) 
-				for hit in hitlist:
-					if hit.included:
-						Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
-						eval = "%.3g" % hit.evalue
-						results.append(Result(
-							Contig ,
-							hit.name.decode() ,
-							hitlist.query.name.decode(),
-							round(hit.score, 2),
-							eval
-						))
+	return hits	
+	
+		
+def parse_hmmer(hits, out_base: Path) :	
+	results : list[tuple] = []
+	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
+	hmmout = out_base.with_suffix(".tblout")
+
+	# with open(hmmout, 'wb') as outfile:
+	# 	hits = list(hits)
+	for hitlist in hits:
+		# hitlist.write(outfile, header=True) 
+		for hit in hitlist:
+			if hit.included:
+				Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
+				eval = "%.3g" % hit.evalue
+				results.append(Result(
+					Contig ,
+					hit.name.decode() ,
+					hitlist.query.name.decode(),
+					round(hit.score, 2),
+					eval
+				))
 	return results

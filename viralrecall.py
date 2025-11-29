@@ -61,8 +61,9 @@ def run_program(input : Path,
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	desc_df = pd.DataFrame(description)
 
-	gvog_hmm = database / "gvog_mirus_cat.hmm"
-	hmm_results = search_with_pyhmmer(proteins, gvog_hmm, out_base, evalue)
+	gvog_hmm = database / "gvog_mirus_cat.h3m"
+	hits = search_with_pyhmmer(proteins, gvog_hmm, evalue)
+	hmm_results = parse_hmmer(hits, out_base)
 	
 	hmmout = out_base.with_suffix(".hmmout")
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe
