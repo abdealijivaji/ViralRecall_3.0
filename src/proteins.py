@@ -4,14 +4,14 @@ from pyhmmer import easel, plan7, hmmer
 from collections import defaultdict, namedtuple
 from pyfaidx import Fasta
 from itertools import chain
-
+from typing import Any
 
 
 amino = easel.Alphabet.amino()
 
 def predict_proteins(input : Fasta, 
 					 contigs : list[str], 
-					 outbase: Path) -> tuple[list, list]:
+					 outbase: Path) -> tuple[Any, list]:
 	''' 
 	Predict proteins using pyrodigal-gv and returns namedtuples of proteins and their headers 
 	Also writes predictions in CDS, AA, and gff3 formats.
@@ -24,7 +24,7 @@ def predict_proteins(input : Fasta,
 
 	prot, cds, gff, gbk = open(prot_out, "w") , open(cds_out, "w") , open(gff_out, "w"), open(gbk_out, "w")
 	
-	proteins : list = []
+	proteins : easel.TextSequenceBlock = easel.TextSequenceBlock()
 	header : list[tuple] = []
 	Header = namedtuple("Header", ["contig", "query", "pstart", "pend", "pstrand", "gen_code"])
 	
@@ -44,20 +44,29 @@ def predict_proteins(input : Fasta,
 				header.append(head)
 	
 				if len(aa) < 100000: # HMMER can't take proteins longer than 100k aa
-					proteins.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa).digitize(amino))
+					proteins.append(easel.TextSequence(name = bytes(prot_id,  'UTF-8'), sequence= aa))
 	return proteins, header
+
+def subset_proteins(proteins: easel.TextSequenceBlock, 
+					prot_ids) :
+	''' Returns a subset of proteins from the TextSequenceBlock based on a list of protein IDs '''
+
+	for prot_id in prot_ids :
+		sub_prot = easel.TextSequence(name= proteins.indexed[prot_id].name,
+							sequence= proteins.indexed[prot_id].sequence)
+		yield sub_prot
+
 
 tbl_head = b"#                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----\ntarget_name        accession  query_name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc target_description\n"
 
-def search_with_pyhmmer(proteins: list, 
+def search_with_pyhmmer(proteins: easel.TextSequenceBlock, 
 						hmm_path: Path, 
 						evalue: float) :
 	
 	
-	digseqs = easel.DigitalSequenceBlock(amino, proteins)
+	digseqs = easel.DigitalSequenceBlock(amino, proteins.digitize(amino))
 	
 	with plan7.HMMFile(hmm_path) as hmm_file:
-		print(hmm_file.is_pressed())
 		hits = list(hmmer.hmmsearch(hmm_file, digseqs, E=evalue))
 	return hits	
 	
@@ -83,3 +92,4 @@ def parse_hmmer(hits, out_base: Path) :
 					eval
 				))
 	return results
+

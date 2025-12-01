@@ -67,12 +67,16 @@ def extract_reg(window : int, phagesize : int,
 				vend = grp['pend'].astype('int64')[end_idx]
 				bp_diff = nxt_vstart - vend
 						
-			if prot_diff > 5 and bp_diff > window :
-				unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()			
-				if vend - vstart >= phagesize and len(unq_hit) > minhit:
+				if prot_diff > 5 and bp_diff > window :
+					unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()			
+					if vend - vstart >= phagesize and len(unq_hit) > minhit:
+						viral_indices[name].append([strt_idx, end_idx])
+					strt_idx = nxt_strt_idx
+					vstart = nxt_vstart
+				
+			unq_hit = grp['HMM_hit'].iloc[strt_idx:end_idx].unique()
+			if vend - vstart >= phagesize and len(unq_hit) > minhit:
 					viral_indices[name].append([strt_idx, end_idx])
-				strt_idx = nxt_strt_idx
-				vstart = nxt_vstart
 	return viral_indices
 
 
@@ -83,15 +87,3 @@ def merge_annot(df: pd.DataFrame) -> pd.DataFrame :
 	annot = annot.rename(columns={'GVOG':'HMM_hit'})
 	df = df.merge(annot, on = 'HMM_hit', how='left')
 	return df
-
-def count_hits(hits, contigs):
-	''' Right now does listing of markers for each contig '''
-	query2hits = defaultdict(list)
-	for i in contigs:
-		for j in hits:
-			if i == j.contig:
-				marker_score = j.HMM_hit + ": " + str(j.bitscore)
-				query2hits[i].append(marker_score)
-
-	return query2hits
-		

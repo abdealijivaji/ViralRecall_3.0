@@ -4,7 +4,7 @@ import pandas
 import scipy.signal as ssig
 from scipy.signal import find_peaks
 
-#annot_tbl = pandas.read_csv("../Chlamy_punui/Chlamy_punui.tsv", sep= "\t", header= 0)
+annot_tbl = pandas.read_csv("/home/abdeali/viralR_test_output/Chlamy_punui/MIRUS_G_0001.tsv", sep= "\t", header= 0)
 
 plt.style.use('_mpl-gallery')
 
@@ -36,3 +36,5 @@ def plot_vreg(annot_tbl : pandas.DataFrame) -> None :
 
     plt.show()
     return None
+
+plot_vreg(annot_tbl)

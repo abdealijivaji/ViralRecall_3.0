@@ -60,3 +60,5 @@ def mp_cpu(cpu : int | None) -> int :
 		return cpu_count()
 	else :
 		return cpu
+	
+	

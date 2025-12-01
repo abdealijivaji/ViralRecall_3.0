@@ -59,7 +59,7 @@ def run_program(input : Path,
 	filt_contig_list = filt_fasta(phagesize, genome_file)
 	
 	if not filt_contig_list:
-		print(f"No contigs longer than the minimum phage size of {phagesize} bp were found in {input.name}.\n" \
+		logger.error(f"No contigs longer than the minimum phage size of {phagesize} bp were found in {input.name}.\n" \
 		" Not proceeding with the genome. Change phagesize parameter to a smaller value if needed.")
 		return
 
@@ -97,7 +97,9 @@ def run_program(input : Path,
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 		
 	viral_df = pd.DataFrame()
+	count = 0
 	for key, value in viral_indices.items():
+		
 		if len(value) >= 1:
 			for idx, coords in enumerate(value, start=1):
 				vregion_df = df.iloc[coords[0]:coords[1]+1]
@@ -122,6 +124,7 @@ def run_program(input : Path,
 							   num_prots= len(vregion_df),
 							   num_viral_hits= num_hits ,
 							   score= vregion_df["bitscore"].mean()))
+				count += 1
 		else:
 			vir_summary.append(Summary(file=input.name,
 							   contig=key,
@@ -133,13 +136,14 @@ def run_program(input : Path,
 							   num_prots= "NA",
 							   num_viral_hits= "NA",
 							   score= str(0)))
+			
 	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
 	summ_df.to_csv(summ_file, index=False, sep= "\t")
 		
 	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
 	viral_df.to_csv(vannot, index=False, sep= "\t")
-	logger.info(f"Finished running Viralrecall on {input.name} and found {len(viral_indices)} viral regions" )
+	logger.info(f"Finished running Viralrecall on {input.name} and found {count} viral region/s" )
 	return
 
 
@@ -150,7 +154,7 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =   "~/viralR_test_input/Chlamy_punui_contig.fna" # args_list.input #
+	input =   "~/viralR_test_input/MIRUS_G_0001.fa" # args_list.input #
 	project =  "~/viralR_test_output/Chlamy_punui" # args_list.project #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
