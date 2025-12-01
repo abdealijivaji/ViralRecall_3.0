@@ -13,8 +13,8 @@ def load_genome(input : Path) -> Fasta :
 		is_DNA(genome_file)
 	except FastaIndexingError:
 		raise FastaIndexingError(f"Input file {input.name} is not in Fasta format. Please check input file")
-	except Exception:
-		raise Exception(f"{input.name} does not look like a valid DNA sequence. Please check input file")
+	except ValueError:
+		raise ValueError(f"{input.name} does not look like a valid DNA sequence. Please check input file")
 	
 	return genome_file
 
@@ -52,7 +52,7 @@ def filt_fasta(phagesize : int, genome_file: Fasta) -> list[str]:
 def is_DNA(genome : Fasta) -> None :
 	seq_for_check = set(str(genome[0][:1000]).upper())
 	if not set(seq_for_check).issubset(valid_bases) :
-		raise Exception
+		raise ValueError
 
 def mp_cpu(cpu : int | None) -> int :
 	'''Returns number of parallel processes to spawn in batch mode'''

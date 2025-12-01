@@ -9,7 +9,9 @@ import multiprocessing.pool as mp
 from src.proteins import *
 from src.utils import *
 from src.vreg_annot import *
+import src.log as log
 
+__version__ = 3.0
 
 
 def parse_args(argv=None) :
@@ -44,10 +46,15 @@ def run_program(input : Path,
 	
 	''' Main function to run ViralRecall '''
 
-	genome_file = load_genome(input)
-	
-	print(f"Running viralrecall on {input.name} and output will be deposited in {out_base.parent}")
 	out_base.parent.mkdir(exist_ok=True)
+	logger = log.setup_logger(out_base.parent)
+	try :
+		genome_file = load_genome(input)
+	except Exception as e:
+		logger.error(e)
+	
+	logger.info(f"Running viralrecall on {input.name}")
+	
 
 	filt_contig_list = filt_fasta(phagesize, genome_file)
 	
@@ -132,7 +139,7 @@ def run_program(input : Path,
 		
 	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
 	viral_df.to_csv(vannot, index=False, sep= "\t")
-	print(f"{input.name} finished")
+	logger.info(f"Finished running Viralrecall on {input.name} and found {len(viral_indices)} viral regions" )
 	return
 
 
