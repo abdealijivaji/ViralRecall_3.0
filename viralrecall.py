@@ -15,16 +15,16 @@ __version__ = 3.0
 
 def parse_args(argv=None) :
 	
-	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="ViralRecall v. 3.0: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=False, help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
-	args_parser.add_argument('-o', '--outdir', required=False, help='Output directory name')
+	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
+	args_parser.add_argument('-i', '--input', required=True, help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
+	args_parser.add_argument('-o', '--outdir', required=True, help='Output directory name')
 	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
 	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
 	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
 	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
 	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
 	args_parser.add_argument('-c', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
-	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 3.0')
+	args_parser.add_argument('-v', '--version', action='version', version=f'ViralRecall v. {__version__}')
 	args_parser = args_parser.parse_args()
 
 	return args_parser
