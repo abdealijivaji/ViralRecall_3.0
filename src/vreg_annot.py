@@ -82,8 +82,12 @@ def extract_reg(window : int, phagesize : int,
 
 
 def merge_annot(df: pd.DataFrame) -> pd.DataFrame :
-	full_tab = pd.read_table("hmm/gvog_annotation.tsv", delimiter="\t")
-	annot = full_tab.loc[:, ["GVOG", "NCVOG_descs"]]
-	annot = annot.rename(columns={'GVOG':'HMM_hit'})
-	df = df.merge(annot, on = 'HMM_hit', how='left')
-	return df
+	annot = pd.read_table("hmm/gvog_annotation.tsv", delimiter="\t")
+	return df.merge(annot, on = 'HMM_hit', how='left')
+
+def str_hits(HMM_series: pd.Series, mode: str) :
+	hits = HMM_series.loc[HMM_series.str.contains(mode)].to_list()
+	if not hits :
+		return "NA"
+	else :
+		return ';'.join(set(hits))

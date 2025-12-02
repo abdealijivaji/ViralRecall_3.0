@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
-import argparse
+import argparse, time
 import pandas as pd
 from collections import namedtuple
 from pathlib import Path
 import multiprocessing.pool as mp
-# from pyfaidx import Fasta, FastaIndexingError
-from src.proteins import *
-from src.utils import *
-from src.vreg_annot import *
+from src.proteins import predict_proteins, search_with_pyhmmer, parse_hmmer
+from src.utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu
+from src.vreg_annot import sliding_window_mean, merge_annot, extract_reg, str_hits
 import src.log as log
 
 __version__ = 3.0
@@ -24,11 +23,7 @@ def parse_args(argv=None) :
 	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
 	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
 	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
-	# args_parser.add_argument('-fl', '--flanking', required=False, default=int(0), help='length of flanking regions upstream and downstream of the viral region to output in the final .fna files (default=0)')
 	args_parser.add_argument('-c', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
-	# args_parser.add_argument('-r', '--redo', type=bool, default=False, const=True, nargs='?', help='run without re-launching prodigal and HMMER3 (for quickly re-calculating outputs with different parameters if you have already run once)')
-	# args_parser.add_argument('-c', '--contiglevel', type=bool, default=False, const=True, nargs='?', help='calculate contig/replicon level statistics instead of looking at viral regions (good for screening contigs)')
-	# args_parser.add_argument('-f', '--figplot', type=bool, default=False, const=True, nargs='?', help='Specify this flag if you would like a plot of the viral-like regions with the output')
 	args_parser.add_argument('-v', '--version', action='version', version='ViralRecall v. 3.0')
 	args_parser = args_parser.parse_args()
 
@@ -47,13 +42,14 @@ def run_program(input : Path,
 	''' Main function to run ViralRecall '''
 
 	out_base.parent.mkdir(exist_ok=True)
-	logger = log.setup_logger(out_base.parent)
+	logger = log.setup_logger(out_base.parent, str(out_base.name))
 	try :
 		genome_file = load_genome(input)
 	except Exception as e:
-		logger.error(e)
+		logger.error(str(e))
+		return
 	
-	logger.info(f"Running viralrecall on {input.name}")
+	logger.info(f"Running viralrecall on {input.name} and the output is being deposited in {out_base.parent}")
 	
 
 	filt_contig_list = filt_fasta(phagesize, genome_file)
@@ -64,18 +60,26 @@ def run_program(input : Path,
 		return
 
 	vir_summary = []
-	Summary = namedtuple("Summary", ["file", "contig", "contig_length", "num_viral_region", "vstart", "vend", "vir_length", "num_prots", "num_viral_hits", "score"])
+	Summary = namedtuple("Summary", ["file", "contig", "contig_length", "num_viral_region", 
+								  "vstart", "vend", "vir_length", "num_prots", "num_viral_hits", 
+								  "score", "NCLDV_markers", "Mirusvirus_hits"])
+	
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
+	
 	desc_df = pd.DataFrame(description)
 
 	gvog_hmm = database / "gvog_mirus_cat.h3m"
+	ncldv_hmm = database / "NCLDV_markers.h3m"	
+	
 	hits = search_with_pyhmmer(proteins, gvog_hmm, evalue)
 	hmm_results = parse_hmmer(hits, out_base)
-	
+
 	hmmout = out_base.with_suffix(".hmmout")
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe
-	hmm_df.to_csv(hmmout, index=False, sep= "\t")
-
+	
+	ncldv_hmm_results = search_with_pyhmmer(proteins, ncldv_hmm, evalue)
+	ncldv_hmm_df = pd.DataFrame(parse_hmmer(ncldv_hmm_results, out_base))
+	
 	# keep only top hits for each protein
 	best_hits = hmm_df.sort_values(by = ["query", "bitscore" ], ascending=False).groupby(['contig', 'query']).nth(0).reset_index(drop=True)
 	
@@ -90,16 +94,17 @@ def run_program(input : Path,
 	# Use offset as the window argument for rolling
 	df['rollscore'] = sliding_window_mean(df, offset)
 	df = merge_annot(df)
-	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
+
+	# ncldv_hmm = database / "NCLDV_markers.h3m"
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
 	
+	t6 = time.time()
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 		
 	viral_df = pd.DataFrame()
 	count = 0
-	for key, value in viral_indices.items():
-		
+	for key, value in viral_indices.items():		
 		if len(value) >= 1:
 			for idx, coords in enumerate(value, start=1):
 				vregion_df = df.iloc[coords[0]:coords[1]+1]
@@ -110,8 +115,12 @@ def run_program(input : Path,
 				vreg_head : str = genome_file[key][vstart:vend].fancy_name # type: ignore
 				vreg_seq : str = genome_file[key][vstart:vend].seq # type: ignore
 				# print(type(vreg_head))
-				vreg_file = out_base.parent / f"{key}_vregion_{idx}.fna"
-				with open(vreg_file, "w") as out:
+				vreg_nuc_file = out_base.parent / f"{key}_vregion_{idx}.fna"
+
+				NCLDV_hits = str_hits(ncldv_hmm_df['HMM_hit'], "NCLDV_")
+				mirus_hits = str_hits(vregion_df['HMM_hit'], "Mirus_")
+
+				with open(vreg_nuc_file, "w") as out:
 					out.write(">" + vreg_head + "\n")
 					out.write(vreg_seq)
 				vir_summary.append(Summary(file=input.name,
@@ -123,7 +132,10 @@ def run_program(input : Path,
 							   vir_length= len(vreg_seq),
 							   num_prots= len(vregion_df),
 							   num_viral_hits= num_hits ,
-							   score= vregion_df["bitscore"].mean()))
+							   score= vregion_df["bitscore"].mean(),
+							   NCLDV_markers= NCLDV_hits,
+							   Mirusvirus_hits= mirus_hits)
+							   )
 				count += 1
 		else:
 			vir_summary.append(Summary(file=input.name,
@@ -135,14 +147,23 @@ def run_program(input : Path,
 							   vir_length= "NA",
 							   num_prots= "NA",
 							   num_viral_hits= "NA",
-							   score= str(0)))
+							   score= str(0),
+							   NCLDV_markers= "NA",
+							   Mirusvirus_hits= "NA")
+							   )
 			
+	print(f"Viral region extraction for {input} finished in {time.time() - t6:.3} seconds")
 	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
 	summ_df.to_csv(summ_file, index=False, sep= "\t")
-		
+	
+	
 	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
 	viral_df.to_csv(vannot, index=False, sep= "\t")
+	
+	hmm_df.to_csv(hmmout, index=False, sep= "\t")
+	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
+	
 	logger.info(f"Finished running Viralrecall on {input.name} and found {count} viral region/s" )
 	return
 
@@ -154,8 +175,8 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =   "~/viralR_test_input/MIRUS_G_0001.fa" # args_list.input #
-	project =  "~/viralR_test_output/Chlamy_punui" # args_list.project #
+	input =    args_list.input # "~/viralR_test_input/CP154963.fna" #
+	project = args_list.project #  "~/viralR_test_output/CP154963" #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
@@ -163,11 +184,6 @@ def main(argv=None):
 	minhit = int(args_list.minhit)
 	evalue = float(args_list.evalue)
 	cpus = args_list.cpus
-	# plotflag = args_parser.figplot
-	# redo = args_parser.redo
-	# contiglevel = args_parser.contiglevel
-	# flanking = args_parser.flanking
-	# batch = args_parser.batch
 	
 	input = Path(input).expanduser() 
 	project = Path(project).expanduser() 
@@ -175,7 +191,6 @@ def main(argv=None):
 	 # path of viralrecall.py file
 	database = Path(__file__).parent / "hmm"
 	prep_hmm(database)
-	# project = project.rstrip("/")
 
 	existence = input.exists()
 	indir = input.is_dir()
@@ -187,11 +202,13 @@ def main(argv=None):
 			return
 		
 		project.mkdir(exist_ok=True)
-		
+		# batch_log = log.setup_logger(project, str(project.name))
+
 		try :
 			file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
 		except :
 			raise FileNotFoundError(f"Input Directory : {input}, does not contain genome fasta files. Quitting")
+		print(f"Running ViralRecall in batch mode on {len(file_list)} files found in {input}")
 		arg_list : list[tuple]= []
 		for i in file_list:
 			# Remove suffix before creating directory
@@ -203,13 +220,13 @@ def main(argv=None):
 		
 		with mp.Pool(cpus) as pool:
 			pool.starmap(run_program, arg_list)
-			
+			print(f"Finished running ViralRecall on all files in {input} and the output has been deposited in {project}")
 
 	elif existence and not indir:
 		
 		out_base = project / input.stem
 		run_program(input, out_base, database, window, phagesize, minscore, evalue, minhit) # , minhit, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel
-	
+
 	else:
 		print("Input is not a valid directory or file. Please check the input path.")
 	

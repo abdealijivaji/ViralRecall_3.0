@@ -6,7 +6,6 @@ from pyfaidx import Fasta
 from itertools import chain
 from typing import Any
 
-
 amino = easel.Alphabet.amino()
 
 def predict_proteins(input : Fasta, 
@@ -74,7 +73,7 @@ def search_with_pyhmmer(proteins: easel.TextSequenceBlock,
 def parse_hmmer(hits, out_base: Path) :	
 	results : list[tuple] = []
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
-	hmmout = out_base.with_suffix(".tblout")
+	# hmmout = out_base.with_suffix(".tblout")
 
 	# with open(hmmout, 'wb') as outfile:
 	# 	hits = list(hits)

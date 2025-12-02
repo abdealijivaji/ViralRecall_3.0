@@ -1,8 +1,8 @@
-import logging, pyrodigal_gv, pyhmmer
+import logging, pyrodigal_gv, pyhmmer, pyfaidx
 from pathlib import Path
 __version__ = 3.0
 
-def setup_logger(outbase_dir):
+def setup_logger(outbase_dir, name):
     # import logging
 
     # set up logging to file - see previous section for more details
@@ -25,11 +25,13 @@ def setup_logger(outbase_dir):
     logging.debug(f"Viralrecall Version: {__version__}")
     logging.debug(f'pyrodigal_gv version: {pyrodigal_gv.__version__}')
     logging.debug(f'pyhmmer version: {pyhmmer.__version__}') # type: ignore
+    logging.debug(f'pyfaidx version: {pyfaidx.__version__}') # type: ignore
+
 
     # Now, define a couple of other loggers which might represent areas in your
     # application:
 
-    logger1 = logging.getLogger('myapp.area1')
+    logger1 = logging.getLogger(name)
     # logger2 = logging.getLogger('myapp.area2')
 
     # logger1.debug('Quick zephyrs blow, vexing daft Jim.')
