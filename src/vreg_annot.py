@@ -81,8 +81,9 @@ def extract_reg(window : int, phagesize : int,
 
 
 
-def merge_annot(df: pd.DataFrame) -> pd.DataFrame :
-	annot = pd.read_table("hmm/gvog_annotation.tsv", delimiter="\t")
+def merge_annot(df: pd.DataFrame, db_dir: Path) -> pd.DataFrame :
+	
+	annot = pd.read_table(Path(db_dir / "gvog_annotation.tsv"), delimiter="\t")
 	return df.merge(annot, on = 'HMM_hit', how='left')
 
 def str_hits(HMM_series: pd.Series, mode: str) :

@@ -93,7 +93,7 @@ def run_program(input : Path,
 	offset = pd.offsets.Second(window)
 	# Use offset as the window argument for rolling
 	df['rollscore'] = sliding_window_mean(df, offset)
-	df = merge_annot(df)
+	df = merge_annot(df, database)
 
 	# ncldv_hmm = database / "NCLDV_markers.h3m"
 
@@ -176,7 +176,7 @@ def main(argv=None):
 
 	# set up object names for input/output/database folders
 	input =    args_list.input # "~/viralR_test_input/CP154963.fna" #
-	project = args_list.project #  "~/viralR_test_output/CP154963" #
+	project = args_list.outdir #  "~/viralR_test_output/CP154963" #
 	# database = args_parser.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000

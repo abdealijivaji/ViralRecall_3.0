@@ -52,3 +52,6 @@ hmm/cat_mirus.h3p
 hmm/cat_mirus.hmm
 hmm/NCLDV_markers.hmm
 hmm/NCLDV_markers.hmm
+src/vreg_annot.py
+src/__pycache__/proteins.cpython-312.pyc
+src/__pycache__/utils.cpython-312.pyc
