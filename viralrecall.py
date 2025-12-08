@@ -6,7 +6,7 @@ from collections import namedtuple
 from pathlib import Path
 import multiprocessing.pool as mp
 from src.proteins import predict_proteins, search_with_pyhmmer, parse_hmmer
-from src.utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu
+from src.utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu, find_db
 from src.vreg_annot import sliding_window_mean, merge_annot, extract_reg, str_hits
 import src.log as log
 
@@ -15,16 +15,29 @@ __version__ = 3.0
 
 def parse_args(argv=None) :
 	
-	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=True, help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
-	args_parser.add_argument('-o', '--outdir', required=True, help='Output directory name')
-	args_parser.add_argument('-w', '--window', required=False, default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
-	args_parser.add_argument('-m', '--minsize', required=False, default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
-	args_parser.add_argument('-s', '--minscore', required=False, default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
-	args_parser.add_argument('-e', '--evalue', required=False, default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
-	args_parser.add_argument('-g', '--minhit', required=False, default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
-	args_parser.add_argument('-c', '--cpus', required=False, default=None, help='number of cpus to use for the HMMER3 search')
-	args_parser.add_argument('-v', '--version', action='version', version=f'ViralRecall v. {__version__}')
+	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
+									   description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
+									   epilog='*******************************************************************\n\n*******************************************************************')
+	args_parser.add_argument('-i', '--input', required=True, 
+						  help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
+	args_parser.add_argument('-o', '--outdir', required=True, 
+						  help='Output directory name')
+	args_parser.add_argument('-d', '--database', required=True, 
+						  help='Database directory name, e.g. ~/hmm \n (download the database using download_database.py script)')
+	args_parser.add_argument('-w', '--window', required=False, 
+						  default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
+	args_parser.add_argument('-m', '--minsize', required=False, 
+						  default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
+	args_parser.add_argument('-s', '--minscore', required=False, 
+						  default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
+	args_parser.add_argument('-e', '--evalue', required=False, 
+						  default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
+	args_parser.add_argument('-g', '--minhit', required=False, 
+						  default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
+	args_parser.add_argument('-c', '--cpus', required=False, 
+						  default=None, help='number of cpus to use for the HMMER3 search')
+	args_parser.add_argument('-v', '--version', action='version', 
+						  version=f'ViralRecall v. {__version__}')
 	args_parser = args_parser.parse_args()
 
 	return args_parser
@@ -37,7 +50,7 @@ def run_program(input : Path,
 				phagesize: int, 
 				minscore: int, 
 				evalue: float,
-				minhit: int) : # , minhit, cpus,  plotflag, redo, flanking, batch, summary_file, contiglevel
+				minhit: int) -> None : 
 	
 	''' Main function to run ViralRecall '''
 
@@ -99,7 +112,6 @@ def run_program(input : Path,
 
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
 	
-	t6 = time.time()
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 		
 	viral_df = pd.DataFrame()
@@ -152,7 +164,6 @@ def run_program(input : Path,
 							   Mirusvirus_hits= "NA")
 							   )
 			
-	print(f"Viral region extraction for {input} finished in {time.time() - t6:.3} seconds")
 	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
 	summ_df.to_csv(summ_file, index=False, sep= "\t")
@@ -175,21 +186,19 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =    args_list.input # "~/viralR_test_input/CP154963.fna" #
-	project = args_list.outdir #  "~/viralR_test_output/CP154963" #
-	# database = args_parser.database
+	input =    Path(args_list.input).expanduser() # "~/viralR_test_input/CP154963.fna" #
+	project = Path(args_list.outdir).expanduser() #  "~/viralR_test_output/CP154963" #
+	db_dir = Path(args_list.database).expanduser() 
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
 	minscore = int(args_list.minscore)
 	minhit = int(args_list.minhit)
 	evalue = float(args_list.evalue)
 	cpus = args_list.cpus
+
 	
-	input = Path(input).expanduser() 
-	project = Path(project).expanduser() 
 	
-	 # path of viralrecall.py file
-	database = Path(__file__).parent / "hmm"
+	database = find_db(db_dir)
 	prep_hmm(database)
 
 	existence = input.exists()
@@ -206,8 +215,9 @@ def main(argv=None):
 
 		try :
 			file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
-		except :
-			raise FileNotFoundError(f"Input Directory : {input}, does not contain genome fasta files. Quitting")
+		except FileNotFoundError as f:
+			raise FileNotFoundError(f"Input Directory : {input}, does not contain fasta files. Quitting")
+		
 		print(f"Running ViralRecall in batch mode on {len(file_list)} files found in {input}")
 		arg_list : list[tuple]= []
 		for i in file_list:

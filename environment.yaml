@@ -128,7 +128,7 @@ dependencies:
   - psutil=7.0.0=py312h66e93f0_0
   - pthread-stubs=0.4=hb9d3cd8_1002
   - pycparser=2.22=pyh29332c3_1
-  - pyhmmer=0.11.2=py312h0fa9677_0
+  - pyhmmer=0.11.3=py312h0fa9677_0
   - pyld=2.0.4=pyhd8ed1ab_1
   - pyparsing=3.2.3=pyhe01879c_2
   - pyrodigal=3.6.3.post1=py312h0fa9677_0
@@ -183,5 +183,5 @@ dependencies:
   - zstd=1.5.7=hb8e6e7a_2
   - pip:
       - memory-profiler==0.61.0
-      - pyfaidx==0.8.1.4
+      - pyfaidx==0.9.0
 prefix: /home/abdeali/miniconda3/envs/VR

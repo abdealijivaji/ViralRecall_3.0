@@ -4,9 +4,6 @@ from pyfaidx import Fasta, FastaIndexingError
 from multiprocessing import cpu_count
 from pyhmmer import hmmpress, plan7
 
-
-
-
 def load_genome(input : Path) -> Fasta :
 	try :
 		genome_file = Fasta(input)
@@ -59,6 +56,17 @@ def mp_cpu(cpu : int | None) -> int :
 	if cpu == None :
 		return cpu_count()
 	else :
-		return cpu
+		return cpu if cpu <= cpu_count() else cpu_count()
+	
+
+def find_db(database: Path) -> Path :
+	
+	file_list = ["gvog_mirus_cat.hmm", "NCLDV_markers.hmm", "gvog_annotation.tsv"]
+	
+	if not database.is_dir() :
+		raise FileNotFoundError(f"HMM database directory {database} not found. Please check the database path.")
+	elif not all((database / i).is_file() for i in file_list) :
+		raise FileNotFoundError(f"HMM database files not found in {database}. Please check the database path.")
+	return database
 	
 	

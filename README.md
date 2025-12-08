@@ -1,3 +1,38 @@
-Basic usage
+# Viralrecall v3.0
 
-< Path to viralrecall.py > -i < path to input file or directory > -o < Path to output directory. Created if not >
+Written by Abdeali Jivaji, PhD Candidate in Aylward Lab, and Dr. Frank Aylward, Assoc. Professor, Dept. of Biological Sciences, Virginia Tech. Please submit issues in the Github issues or email Abdeali <abdeali@vt.edu> or Dr. Aylward <faylward@vt.edu>
+
+## Introduction
+
+Viralrecall is a python tool to primarily identify Giant Endogenous Viral Elements (GEVEs) integrated in the genome of eukaryotes. The current version is an update on the original tool by Dr. Aylward and uses the same GVOG HMM database to detect signatures of giant viruses. The key motivation for updating Viralrecall was to make it more efficient at processing the larger euykaryotic genomes that are being published with the rise in popularity of long-read sequencing.
+We also include a small set of HMMs to detect key Mirusvirus hallmark proteins to aid in the detection of Mirusviruses. However, this feature is still in it's early stages and any detection of Mirusvirus proteins should be independently and manually verified by the user.
+
+## Installation
+
+You can download Viralrecall v3.0 by running
+`git clone https://github.com/abdealijivaji/ViralRecall_3.0.git`
+
+To install the required packages in a conda environment, run:
+`conda env create -f environment.yaml`
+
+NOTE: We are trying to get a conda package out soon
+
+## Database Download
+
+`cd ViralRecall_3.0
+python download_database.py -d < Directory to put the database >`
+
+This will automatically download and set up the database directory.
+
+Or if you want to run it manually, you can do the following steps:
+
+`cd ViralRecall_3.0
+wget https://zenodo.org/records/17859729/files/hmm.tar.gz
+tar -xvzf hmm.tar.gz`
+
+## Basic Usage
+
+Navigate to the viralrecall directory and run:
+You need to provide the path to viralrecall.py script, the input file or directory containing genome files in fasta format ending with .fa, .fna, or .fasta, name of the output directory, and path to the database directory. If the input is a directory containing multiple fasta files, the tool runs in batch mode and processes all of them in parallel. The number of cores used can be controlled by the -c or --cpu flag. Default is to use all cores.
+
+`< Path to viralrecall.py > -i < path to input file or directory > -o < output directory > -d < Path to database directory >`

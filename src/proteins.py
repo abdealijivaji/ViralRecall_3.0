@@ -1,16 +1,15 @@
 import pyrodigal_gv
 from pathlib import Path
 from pyhmmer import easel, plan7, hmmer
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from pyfaidx import Fasta
-from itertools import chain
 from typing import Any
 
 amino = easel.Alphabet.amino()
 
 def predict_proteins(input : Fasta, 
 					 contigs : list[str], 
-					 outbase: Path) -> tuple[Any, list]:
+					 outbase: Path) -> tuple[Any, list[tuple]]:
 	''' 
 	Predict proteins using pyrodigal-gv and returns namedtuples of proteins and their headers 
 	Also writes predictions in CDS, AA, and gff3 formats.
@@ -70,7 +69,7 @@ def search_with_pyhmmer(proteins: easel.TextSequenceBlock,
 	return hits	
 	
 		
-def parse_hmmer(hits, out_base: Path) :	
+def parse_hmmer(hits, out_base: Path) -> list[tuple]:	
 	results : list[tuple] = []
 	Result = namedtuple("Result", ["contig", "query", "HMM_hit", "bitscore", "evalue"])	
 	# hmmout = out_base.with_suffix(".tblout")

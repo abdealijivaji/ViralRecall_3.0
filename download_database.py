@@ -1,12 +1,23 @@
+
 from pathlib import Path
 import requests, time, progressbar, shutil
 import numpy as np
 from src.utils import prep_hmm
+import hashlib, argparse, os
 
-def download_file(url : str, filepath : Path, n_chunk=1000):
-    if filepath.exists() :
+def check_file_hash(filepath : Path, expected_hash : str) -> bool :
+    ''' Check the md5 hash of a file to ensure it matches the expected hash '''
+    
+    with open(filepath, "rb") as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()
+    return file_hash == expected_hash
+
+def download_file(url : str, filepath : Path) -> None:
+    compressed_hash = "fa81765a316c5d84c67c9da12a10ee9e"
+    if filepath.exists() and check_file_hash(filepath, compressed_hash) :
         print(f"Database is already downloaded")
         return
+    n_chunk=1000
     r = requests.get(url, stream=True)
     
     # Estimates the number of bar updates
@@ -19,29 +30,46 @@ def download_file(url : str, filepath : Path, n_chunk=1000):
         for i, chunk in enumerate(r.iter_content(chunk_size=n_chunk * block_size)):
             f.write(chunk)
             bar.update(i+1)
-            # Add a little sleep so you can see the bar progress
             time.sleep(0.05)
-    print(f"\nFinished downloading HMM database")
+    if filepath.exists() and check_file_hash(filepath, compressed_hash) :
+        print(f"Finished downloading HMM database")
+    else :
+        print(f"Error in downloading database. Please try again.")
     return
 
+def parse_args(argv=None) :
+    args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
+                    description="Download database for Viralrecall v3.0", 
+                    epilog='*******************************************************************\n\n*******************************************************************')
+    args_parser.add_argument('-d', '--db_dir', required=False, default=Path.cwd(),
+                             help='Directory to download the HMM database. Default is current working directory')
+    args_parser.add_argument('-n', '--name' , required=False, default='hmm',
+                             help='Name to give the database directory. Default is "hmm"')
+    args_parser = args_parser.parse_args()
+    
+    return args_parser
 
 
     # return outname.with_suffix('.h3m')
 
 def main() :
-    base_dir = Path("~").expanduser() # Path(__file__).parent
-    db_dir = base_dir / 'hmm'
-    dbsrc = "https://zenodo.org/records/12666277/files/hmm.tar.gz"
-    db_file = db_dir.with_suffix('.tar.gz')
+    args_list = parse_args()
+    out_dir = Path(args_list.db_dir).expanduser()
+    project_name = args_list.name 
+    
+    print(f"Downloading database to {out_dir}")
+    dbsrc = "https://zenodo.org/records/17859729/files/hmm.tar.gz"
+    
+    db_dir = out_dir / project_name
+    db_file = db_dir.with_suffix('.tar.gz') 
     download_file(dbsrc, db_file)
-    
+
     if not db_dir.is_dir() :
-        shutil.unpack_archive(db_file, base_dir)
+        shutil.unpack_archive(db_file, out_dir)
         print("Finished unpacking")
-    
+    os.remove(db_file)
+    print(f"Preparing HMM database: {db_dir}")
     prep_hmm(db_dir)
-
-
 
 
 
