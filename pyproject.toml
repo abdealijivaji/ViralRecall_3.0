@@ -1,0 +1,32 @@
+[project]
+name = "ViralRecall_3.0"
+version = "3.0.0"
+description = "Tool to identify giant viruses integrated into eukaryotic genomes"
+requires-python = ">=3.12.0"
+authors = [
+    {name = "Abdeali M. Jivaji", email = "abdeali@vt.edu"},
+    {name = "Frank O. Aylward", email = "faylward@vt.edu"}
+]
+license = {text = "BSD-3-Clause"}
+readme = {file = "README.md", content-type = "text/markdown"}
+dependencies = [
+    "numpy == 2.2.5",
+    "pyhmmer >= 0.11.3",
+    "pyrodigal-gv == 0.3.*",
+    "pyfaidx==0.9.0",
+    "pandas==2.2.3",
+    "scipy==1.16.1"
+]
+[dependency-groups]
+test = [
+    "pytest == 8.2.0"
+]
+lint = [
+    "ruff == 0.4.4",
+]
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+viralrecall = "src.viralrecall:main"

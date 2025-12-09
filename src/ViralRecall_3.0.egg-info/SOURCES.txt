@@ -1,0 +1,16 @@
+LICENSE.txt
+README.md
+pyproject.toml
+src/__init__.py
+src/log.py
+src/plot_vreg.py
+src/proteins.py
+src/utils.py
+src/viralrecall.py
+src/vreg_annot.py
+src/ViralRecall_3.0.egg-info/PKG-INFO
+src/ViralRecall_3.0.egg-info/SOURCES.txt
+src/ViralRecall_3.0.egg-info/dependency_links.txt
+src/ViralRecall_3.0.egg-info/entry_points.txt
+src/ViralRecall_3.0.egg-info/requires.txt
+src/ViralRecall_3.0.egg-info/top_level.txt
