@@ -1,13 +1,14 @@
 [project]
-name = "ViralRecall_3.0"
-version = "3.0.0"
+name = "viralrecall"
+dynamic = ["version"]
 description = "Tool to identify giant viruses integrated into eukaryotic genomes"
 requires-python = ">=3.12.0"
 authors = [
     {name = "Abdeali M. Jivaji", email = "abdeali@vt.edu"},
     {name = "Frank O. Aylward", email = "faylward@vt.edu"}
 ]
-license = {text = "BSD-3-Clause"}
+license = "CC-BY-NC-4.0"
+license-files = ["LICENSE"]
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
     "numpy == 2.2.5",
@@ -15,8 +16,11 @@ dependencies = [
     "pyrodigal-gv == 0.3.*",
     "pyfaidx==0.9.0",
     "pandas==2.2.3",
-    "scipy==1.16.1"
+    "scipy==1.16.1",
+    "progressbar==2.5",
+    "requests==2.32.*"
 ]
+keywords = ["giant virus", "virus", "genomics", "viralrecall"]
 [dependency-groups]
 test = [
     "pytest == 8.2.0"
@@ -28,5 +32,9 @@ lint = [
 requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.dynamic]
+version = {attr = "viralrecall.viralrecall.__version__"}
+
 [project.scripts]
-viralrecall = "src.viralrecall:main"
+viralrecall = "viralrecall.viralrecall:main"
+viralrecall_database = "viralrecall.download_database:main"

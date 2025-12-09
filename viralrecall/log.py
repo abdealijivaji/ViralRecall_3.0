@@ -1,6 +1,6 @@
 import logging, pyrodigal_gv, pyhmmer, pyfaidx, pandas
 from pathlib import Path
-from viralrecall import __version__
+from .viralrecall import __version__
 
 def setup_logger(outbase_dir : Path, name):
     

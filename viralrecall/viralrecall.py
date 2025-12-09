@@ -5,11 +5,11 @@ import pandas as pd
 from collections import namedtuple
 from pathlib import Path
 import multiprocessing.pool as mp
-from src.proteins import predict_proteins, search_with_pyhmmer, parse_hmmer
-from src.utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu, find_db
-from src.vreg_annot import sliding_window_mean, merge_annot, extract_reg, str_hits
-import src.log as log
-from src.plot_vreg import plot_vreg
+from .proteins import predict_proteins, search_with_pyhmmer, parse_hmmer
+from .utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu, find_db
+from .vreg_annot import sliding_window_mean, merge_annot, extract_reg, str_hits
+from .log import setup_logger
+from .plot_vreg import plot_vreg
 
 __version__ = 3.0
 
@@ -56,7 +56,7 @@ def run_program(input : Path,
 	''' Main function to run ViralRecall '''
 
 	out_base.parent.mkdir(exist_ok=True)
-	logger = log.setup_logger(out_base.parent, str(out_base.name))
+	logger = setup_logger(out_base.parent, str(out_base.name))
 	try :
 		genome_file = load_genome(input)
 	except Exception as e:

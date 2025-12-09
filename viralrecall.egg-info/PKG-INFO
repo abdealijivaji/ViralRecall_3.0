@@ -1,18 +1,21 @@
 Metadata-Version: 2.4
-Name: ViralRecall_3.0
-Version: 3.0.0
+Name: viralrecall
+Version: 3.0
 Summary: Tool to identify giant viruses integrated into eukaryotic genomes
 Author-email: "Abdeali M. Jivaji" <abdeali@vt.edu>, "Frank O. Aylward" <faylward@vt.edu>
-License: BSD-3-Clause
+License-Expression: CC-BY-NC-4.0
+Keywords: giant virus,virus,genomics,viralrecall
 Requires-Python: >=3.12.0
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
+License-File: LICENSE
 Requires-Dist: numpy==2.2.5
 Requires-Dist: pyhmmer>=0.11.3
 Requires-Dist: pyrodigal-gv==0.3.*
 Requires-Dist: pyfaidx==0.9.0
 Requires-Dist: pandas==2.2.3
 Requires-Dist: scipy==1.16.1
+Requires-Dist: progressbar==2.5
+Requires-Dist: requests==2.32.*
 Dynamic: license-file
 
 # Viralrecall v3.0

@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+viralrecall/__init__.py
+viralrecall/download_database.py
+viralrecall/log.py
+viralrecall/plot_vreg.py
+viralrecall/proteins.py
+viralrecall/utils.py
+viralrecall/viralrecall.py
+viralrecall/vreg_annot.py
+viralrecall.egg-info/PKG-INFO
+viralrecall.egg-info/SOURCES.txt
+viralrecall.egg-info/dependency_links.txt
+viralrecall.egg-info/entry_points.txt
+viralrecall.egg-info/requires.txt
+viralrecall.egg-info/top_level.txt
