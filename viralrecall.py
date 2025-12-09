@@ -9,6 +9,7 @@ from src.proteins import predict_proteins, search_with_pyhmmer, parse_hmmer
 from src.utils import load_genome, prep_hmm, filt_fasta, check_directory_permissions, mp_cpu, find_db
 from src.vreg_annot import sliding_window_mean, merge_annot, extract_reg, str_hits
 import src.log as log
+from src.plot_vreg import plot_vreg
 
 __version__ = 3.0
 
@@ -18,11 +19,11 @@ def parse_args(argv=None) :
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
 									   description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
 									   epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=True, 
+	args_parser.add_argument('-i', '--input', required=False, 
 						  help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
-	args_parser.add_argument('-o', '--outdir', required=True, 
+	args_parser.add_argument('-o', '--outdir', required=False, 
 						  help='Output directory name')
-	args_parser.add_argument('-d', '--database', required=True, 
+	args_parser.add_argument('-d', '--database', required=False, 
 						  help='Database directory name, e.g. ~/hmm \n (download the database using download_database.py script)')
 	args_parser.add_argument('-w', '--window', required=False, 
 						  default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
@@ -113,20 +114,25 @@ def run_program(input : Path,
 	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
 	
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
-		
+	viral_coords = {}
 	viral_df = pd.DataFrame()
 	count = 0
 	for key, value in viral_indices.items():		
 		if len(value) >= 1:
+			starts = []
+			ends = []
 			for idx, coords in enumerate(value, start=1):
 				vregion_df = df.iloc[coords[0]:coords[1]+1]
 				vregion_df.insert(0, 'Viral_region_number', f"vregion_{idx}", allow_duplicates=True)
 				viral_df = pd.concat([viral_df, vregion_df], ignore_index=True)
 				num_hits= len(vregion_df.loc[vregion_df['HMM_hit'] != "no_hit"])
-				vstart , vend = vregion_df['pstart'].astype('int64')[coords[0]] , vregion_df['pend'].astype('int64')[coords[1]]
+				vstart  = vregion_df['pstart'].astype('int64')[coords[0]]
+				vend = vregion_df['pend'].astype('int64')[coords[1]]
+				starts.append(vstart)
+				ends.append(vend)
+
 				vreg_head : str = genome_file[key][vstart:vend].fancy_name # type: ignore
 				vreg_seq : str = genome_file[key][vstart:vend].seq # type: ignore
-				# print(type(vreg_head))
 				vreg_nuc_file = out_base.parent / f"{key}_vregion_{idx}.fna"
 
 				NCLDV_hits = str_hits(ncldv_hmm_df['HMM_hit'], "NCLDV_")
@@ -149,6 +155,7 @@ def run_program(input : Path,
 							   Mirusvirus_hits= mirus_hits)
 							   )
 				count += 1
+			viral_coords[key] = [starts, ends]
 		else:
 			vir_summary.append(Summary(file=input.name,
 							   contig=key,
@@ -166,15 +173,16 @@ def run_program(input : Path,
 			
 	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
-	summ_df.to_csv(summ_file, index=False, sep= "\t")
-	
-	
 	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
-	viral_df.to_csv(vannot, index=False, sep= "\t")
 	
+	summ_df.to_csv(summ_file, index=False, sep= "\t")
+	viral_df.to_csv(vannot, index=False, sep= "\t")
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
 	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
 	
+	logger.info(f"Creating plots")
+	plot_vreg(df, minscore, viral_coords, out_base)
+
 	logger.info(f"Finished running Viralrecall on {input.name} and found {count} viral region/s" )
 	return
 
@@ -186,9 +194,9 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =    Path(args_list.input).expanduser() # "~/viralR_test_input/CP154963.fna" #
-	project = Path(args_list.outdir).expanduser() #  "~/viralR_test_output/CP154963" #
-	db_dir = Path(args_list.database).expanduser() 
+	input =    Path("~/viralR_test_input/Chlamy_punui_contig.fna").expanduser() # "~/viralR_test_input/CP154963.fna" # args_list.input
+	project = Path("~/viralR_test_output/Chlamy_punui").expanduser() #  "~/viralR_test_output/CP154963" # args_list.outdir
+	db_dir = Path("./hmm").expanduser()  # args_list.database
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
 	minscore = int(args_list.minscore)

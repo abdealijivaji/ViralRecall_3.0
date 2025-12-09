@@ -10,12 +10,9 @@ hmm/.DS_Store
 
 .DS_Store
 .vscode/settings.json
-<<<<<<< HEAD
 hmm/gvog_mirus_cat.hmm
-=======
 src/__pycache__/__init__.cpython-312.pyc
 src/__pycache__/plot_vreg.cpython-312.pyc
->>>>>>> 50bc715 (starting to refactor)
 src/__pycache__/proteins.cpython-312.pyc
 src/__pycache__/proteins.cpython-312.pyc
 src/__pycache__/utils.cpython-312.pyc
@@ -52,6 +49,5 @@ hmm/cat_mirus.h3p
 hmm/cat_mirus.hmm
 hmm/NCLDV_markers.hmm
 hmm/NCLDV_markers.hmm
-src/vreg_annot.py
 src/__pycache__/proteins.cpython-312.pyc
 src/__pycache__/utils.cpython-312.pyc

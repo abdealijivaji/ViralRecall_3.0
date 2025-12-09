@@ -1,40 +1,39 @@
 
 import matplotlib.pyplot as plt
-import pandas
-import scipy.signal as ssig
-from scipy.signal import find_peaks
+from matplotlib.backends.backend_pdf import PdfPages  
+import pandas as pd
+from pathlib import Path
 
-annot_tbl = pandas.read_csv("/home/abdeali/viralR_test_output/Chlamy_punui/MIRUS_G_0001.tsv", sep= "\t", header= 0)
-
-plt.style.use('_mpl-gallery')
+plt.style.use('petroff10')
 
 
+def plot_vreg(annot_tbl : pd.DataFrame, minscore: int, 
+              vreg_coords : dict, out_base: Path) -> None :
+    out_file = out_base.parent / 'plots.pdf' 
+    print(out_file)
+    with PdfPages(out_file) as of :
+        for key, coords in vreg_coords.items():
+            df = annot_tbl.loc[annot_tbl['contig'] == key]
+            x = df['pstart']/1_000_000
+            y = df['rollscore']
+            starts = [i / 1_000_000 for i in coords[0]]
+            ends = [i / 1_000_000 for i in coords[1]]
+            
+            fig, ax = plt.subplots(layout="constrained", figsize=(10, 6))
 
+            
 
-# y_peak, _ = find_peaks(y.array)
+            plt.plot(x, y, linewidth = '2')
+            plt.axhline(minscore, color='red', linestyle='--', label='Min Score Threshold')
+            plt.xlabel("Genome Position (Mb)")
+            plt.ylabel("Score")
+            plt.title(f"Viralrecall Score Plot for {key}")
+            for i, _ in enumerate(starts):
+                pos_annot = ((starts[i] + ends[i])/2 , max(y)*0.9)
+                ax.annotate(f'vregion_{i+1}', xy = pos_annot, xytext=pos_annot, 
+                            fontsize=10, ha='center')
+                plt.fill_betweenx(y=[0, max(y)], x1=starts[i], x2=ends[i], 
+                            color='green', alpha=0.1)
+            of.savefig()
+            plt.close()
 
-# #roll_welch, Pow_den  = scipy.signal.welch(y.array, 5e+4 )
-# fs = 100
-
-# sos = ssig.iirfilter(4, Wn=[0.5, 2.5], fs=fs, btype="bandpass",
-#                              ftype="butter", output="sos")
-# y_filt = ssig.sosfilt(sos, y.array)
-# filt_peaks = find_peaks(y_filt, distance = fs, height = 10)
-
-
-
-def plot_vreg(annot_tbl : pandas.DataFrame) -> None :
-    x = annot_tbl['pstart']
-    y = annot_tbl['rollscore']
-    y_peak = ssig.find_peaks_cwt(y.array, widths= 20)
-
-    fig, ax = plt.subplots()
-
-    ax.plot(x, y)
-    #ax.plot(x[y_peak], y[y_peak], "x")
-    ax.plot(x[y_peak], y[y_peak], "x")
-
-    plt.show()
-    return None
-
-plot_vreg(annot_tbl)
