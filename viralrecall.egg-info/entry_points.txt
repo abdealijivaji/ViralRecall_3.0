@@ -1,0 +1,3 @@
+[console_scripts]
+viralrecall = viralrecall.viralrecall:main
+viralrecall_database = viralrecall.download_database:main

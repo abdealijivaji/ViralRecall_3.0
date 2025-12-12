@@ -3,14 +3,15 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages  
 import pandas as pd
 from pathlib import Path
+import logging
 
 plt.style.use('petroff10')
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 def plot_vreg(annot_tbl : pd.DataFrame, minscore: int, 
               vreg_coords : dict, out_base: Path) -> None :
     out_file = out_base.parent / 'plots.pdf' 
-    print(out_file)
     with PdfPages(out_file) as of :
         for key, coords in vreg_coords.items():
             df = annot_tbl.loc[annot_tbl['contig'] == key]
