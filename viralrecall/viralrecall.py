@@ -16,28 +16,32 @@ __version__ = 3.0
 
 def parse_args(argv=None) :
 	
-	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
-									   description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
+	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='viralrecall', add_help=False,
+									   description=f"Viralrecall: A command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
 									   epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=True, 
+	required = args_parser.add_argument_group('required arguments')
+	required.add_argument('-i', '--input', required=True, 
 						  help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
-	args_parser.add_argument('-o', '--outdir', required=True, 
+	required.add_argument('-o', '--outdir', required=True, 
 						  help='Output directory name')
-	args_parser.add_argument('-d', '--database', required=True, 
-						  help='Database directory name, e.g. ~/hmm \n (download the database using download_database.py script)')
-	args_parser.add_argument('-w', '--window', required=False, 
+	required.add_argument('-d', '--database', required=True, 
+						  help='Database directory name, e.g. ~/hmm\n(download the database using viralrecall_database)')
+	optional = args_parser.add_argument_group('optional arguments')
+	optional.add_argument('-w', '--window', required=False, 
 						  default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
-	args_parser.add_argument('-m', '--minsize', required=False, 
+	optional.add_argument('-m', '--minsize', required=False, 
 						  default=int(10), help='minimum length of viral regions to report, in kilobases (default=10 kb)')
-	args_parser.add_argument('-s', '--minscore', required=False, 
+	optional.add_argument('-s', '--minscore', required=False, 
 						  default=int(10), help='minimum score of viral regions to report, with higher values indicating higher confidence (default=10)')
-	args_parser.add_argument('-e', '--evalue', required=False, 
+	optional.add_argument('-e', '--evalue', required=False, 
 						  default=str(1e-10), help='e-value that is passed to pyHmmer for hmmsearch (default=1e-10)')
-	args_parser.add_argument('-g', '--minhit', required=False, 
+	optional.add_argument('-g', '--minhit', required=False, 
 						  default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
-	args_parser.add_argument('-c', '--cpus', required=False, 
+	optional.add_argument('-c', '--cpus', required=False, 
 						  default=None, help='number of cpus to use for the HMMER3 search')
-	args_parser.add_argument('-v', '--version', action='version', 
+	optional.add_argument('-h', '--help', action='help', 
+						  help='show this help message and exit')
+	optional.add_argument('-v', '--version', action='version', 
 						  version=f'ViralRecall v. {__version__}')
 	args_parser = args_parser.parse_args()
 
@@ -109,10 +113,6 @@ def run_program(input : Path,
 	df['rollscore'] = sliding_window_mean(df, offset)
 	df = merge_annot(df, database)
 
-	# ncldv_hmm = database / "NCLDV_markers.h3m"
-
-	# To extract viral regions, we need to extract regions with scores > threshold (minscore)
-	
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 	viral_coords = {}
 	viral_df = pd.DataFrame()
@@ -194,9 +194,9 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =    Path(args_list.input).expanduser() # "~/viralR_test_input/CP154963.fna" #  "~/viralR_test_input/Chlamy_punui_contig.fna"
-	project = Path(args_list.outdir).expanduser() #  "~/viralR_test_output/CP154963" #  "~/viralR_test_output/Chlamy_punui"
-	db_dir = Path(args_list.database).expanduser()  # "./hmm" 
+	input =    Path(args_list.input).expanduser() 
+	project = Path(args_list.outdir).expanduser()
+	db_dir = Path(args_list.database).expanduser() 
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
 	minscore = int(args_list.minscore)
@@ -219,8 +219,6 @@ def main(argv=None):
 			return
 		
 		project.mkdir(exist_ok=True)
-		# batch_log = log.setup_logger(project, str(project.name))
-
 		try :
 			file_list = [i.name for i in input.iterdir() if i.name.endswith(('.fna', '.fasta', '.fa'))]
 		except FileNotFoundError as f:
@@ -243,7 +241,7 @@ def main(argv=None):
 	elif existence and not indir:
 		
 		out_base = project / input.stem
-		run_program(input, out_base, database, window, phagesize, minscore, evalue, minhit) # , minhit, cpus, plotflag, redo, flanking, batch, summary_file, contiglevel
+		run_program(input, out_base, database, window, phagesize, minscore, evalue, minhit)
 
 	else:
 		print("Input is not a valid directory or file. Please check the input path.")

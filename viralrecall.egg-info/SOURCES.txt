@@ -1,6 +1,11 @@
 LICENSE
 README.md
 pyproject.toml
+setup.py
+tests/test_download_database.py
+tests/test_log_and_proteins.py
+tests/test_utils.py
+tests/test_vreg_annot.py
 viralrecall/__init__.py
 viralrecall/download_database.py
 viralrecall/log.py

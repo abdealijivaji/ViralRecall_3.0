@@ -1,6 +1,5 @@
 import logging, pyrodigal_gv, pyhmmer, pyfaidx, pandas, sys
 from pathlib import Path
-#from .viralrecall import __version__
 __version__ = 3.0
 
 

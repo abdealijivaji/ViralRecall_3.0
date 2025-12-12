@@ -39,7 +39,7 @@ def download_file(url : str, filepath : Path) -> None:
 
 def parse_args(argv=None) :
     args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
-                    description="Download database for Viralrecall v3.0", 
+                    description="Download database for Viralrecall", 
                     epilog='*******************************************************************\n\n*******************************************************************')
     args_parser.add_argument('-d', '--db_dir', required=False, default=Path.cwd(),
                              help='Directory to download the HMM database. Default is current working directory')
@@ -48,9 +48,6 @@ def parse_args(argv=None) :
     args_parser = args_parser.parse_args()
     
     return args_parser
-
-
-    # return outname.with_suffix('.h3m')
 
 def main() :
     args_list = parse_args()

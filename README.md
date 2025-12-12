@@ -39,7 +39,7 @@ This will install a viralrecall and set up the dependencies in a conda environme
 viralrecall_database  
 ```
 
-The `-d` flag can be used to specify the download directory and `-o` can be used to set the directory name.
+The `-d` flag can be used to specify the download directory and `-n` can be used to set the directory name.
 
 This will automatically download and set up the database directory.
 
