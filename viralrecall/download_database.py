@@ -2,7 +2,7 @@
 from pathlib import Path
 import requests, time, progressbar, shutil
 import numpy as np
-from src.utils import prep_hmm
+from .utils import prep_hmm
 import hashlib, argparse, os
 
 def check_file_hash(filepath : Path, expected_hash : str) -> bool :

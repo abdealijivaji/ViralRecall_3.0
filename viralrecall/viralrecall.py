@@ -19,11 +19,11 @@ def parse_args(argv=None) :
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, 
 									   description=f"ViralRecall v. {__version__}: A flexible command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
 									   epilog='*******************************************************************\n\n*******************************************************************')
-	args_parser.add_argument('-i', '--input', required=False, 
+	args_parser.add_argument('-i', '--input', required=True, 
 						  help='Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa)')
-	args_parser.add_argument('-o', '--outdir', required=False, 
+	args_parser.add_argument('-o', '--outdir', required=True, 
 						  help='Output directory name')
-	args_parser.add_argument('-d', '--database', required=False, 
+	args_parser.add_argument('-d', '--database', required=True, 
 						  help='Database directory name, e.g. ~/hmm \n (download the database using download_database.py script)')
 	args_parser.add_argument('-w', '--window', required=False, 
 						  default=int(15), help='sliding window size to use for detecting viral regions (default=15 kb)')
@@ -194,9 +194,9 @@ def main(argv=None):
 	args_list = parse_args()
 
 	# set up object names for input/output/database folders
-	input =    Path("~/viralR_test_input/Chlamy_punui_contig.fna").expanduser() # "~/viralR_test_input/CP154963.fna" # args_list.input
-	project = Path("~/viralR_test_output/Chlamy_punui").expanduser() #  "~/viralR_test_output/CP154963" # args_list.outdir
-	db_dir = Path("./hmm").expanduser()  # args_list.database
+	input =    Path(args_list.input).expanduser() # "~/viralR_test_input/CP154963.fna" #  "~/viralR_test_input/Chlamy_punui_contig.fna"
+	project = Path(args_list.outdir).expanduser() #  "~/viralR_test_output/CP154963" #  "~/viralR_test_output/Chlamy_punui"
+	db_dir = Path(args_list.database).expanduser()  # "./hmm" 
 	window = int(args_list.window)*1000 # convert to bp
 	phagesize = int(args_list.minsize)*1000
 	minscore = int(args_list.minscore)

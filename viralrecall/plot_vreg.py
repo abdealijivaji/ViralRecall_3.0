@@ -10,7 +10,6 @@ plt.style.use('petroff10')
 def plot_vreg(annot_tbl : pd.DataFrame, minscore: int, 
               vreg_coords : dict, out_base: Path) -> None :
     out_file = out_base.parent / 'plots.pdf' 
-    print(out_file)
     with PdfPages(out_file) as of :
         for key, coords in vreg_coords.items():
             df = annot_tbl.loc[annot_tbl['contig'] == key]

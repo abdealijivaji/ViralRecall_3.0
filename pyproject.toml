@@ -2,7 +2,7 @@
 name = "viralrecall"
 dynamic = ["version"]
 description = "Tool to identify giant viruses integrated into eukaryotic genomes"
-requires-python = ">=3.12.0"
+requires-python = ">=3.10"
 authors = [
     {name = "Abdeali M. Jivaji", email = "abdeali@vt.edu"},
     {name = "Frank O. Aylward", email = "faylward@vt.edu"}
@@ -11,14 +11,14 @@ license = "CC-BY-NC-4.0"
 license-files = ["LICENSE"]
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
-    "numpy == 2.2.5",
+    "numpy == 2.2.*",
     "pyhmmer >= 0.11.3",
     "pyrodigal-gv == 0.3.*",
     "pyfaidx==0.9.0",
-    "pandas==2.2.3",
-    "scipy==1.16.1",
+    "pandas==2.2.*",
     "progressbar==2.5",
-    "requests==2.32.*"
+    "requests==2.32.*",
+    "matplotlib == 3.10.*"
 ]
 keywords = ["giant virus", "virus", "genomics", "viralrecall"]
 [dependency-groups]

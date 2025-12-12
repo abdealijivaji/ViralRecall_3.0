@@ -1,7 +1,7 @@
 import logging, pyrodigal_gv, pyhmmer, pyfaidx, pandas
 from pathlib import Path
-from .viralrecall import __version__
-
+#from .viralrecall import __version__
+__version__ = 3.0
 def setup_logger(outbase_dir : Path, name):
     
     # set up logging to file - see previous section for more details
