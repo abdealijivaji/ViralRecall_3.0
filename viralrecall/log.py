@@ -1,7 +1,9 @@
-import logging, pyrodigal_gv, pyhmmer, pyfaidx, pandas
+import logging, pyrodigal_gv, pyhmmer, pyfaidx, pandas, sys
 from pathlib import Path
 #from .viralrecall import __version__
 __version__ = 3.0
+
+
 def setup_logger(outbase_dir : Path, name):
     
     # set up logging to file - see previous section for more details
@@ -19,6 +21,7 @@ def setup_logger(outbase_dir : Path, name):
 
     # Now, we can log to the root logger, or any other logger. First the root...
     logging.debug(f"Viralrecall Version: {__version__}")
+    logging.debug(f'Python version: {sys.version}')
     logging.debug(f'pyrodigal_gv version: {pyrodigal_gv.__version__}')
     logging.debug(f'pyhmmer version: {pyhmmer.__version__}') # type: ignore
     logging.debug(f'pyfaidx version: {pyfaidx.__version__}') # type: ignore

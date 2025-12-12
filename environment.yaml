@@ -1,0 +1,14 @@
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python>=3.10
+  - matplotlib==3.10.*
+  - numpy==2.2.*
+  - pandas==2.2.*
+  - progressbar==2.5
+  - pyfaidx==0.9.0
+  - pyhmmer>=0.11.3
+  - pyrodigal-gv==0.3.*
+  - requests==2.32.*

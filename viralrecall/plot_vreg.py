@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages  
 import pandas as pd
 from pathlib import Path
+import logging
 
 plt.style.use('petroff10')
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 def plot_vreg(annot_tbl : pd.DataFrame, minscore: int, 

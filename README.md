@@ -9,30 +9,51 @@ We also include a small set of HMMs to detect key Mirusvirus hallmark proteins t
 
 ## Installation
 
-You can download Viralrecall v3.0 by running
-`git clone https://github.com/abdealijivaji/ViralRecall_3.0.git`
-
-To install the required packages in a conda environment, run:
-`conda env create -f environment.yaml`
-
 NOTE: We are trying to get a conda package out soon
+
+### Source Installation
+
+You can download Viralrecall v3.0 by running
+
+``` bash
+
+git clone https://github.com/abdealijivaji/ViralRecall_3.0.git
+
+```
+
+To install viralrecall in a conda environment from source, run:
+
+``` bash
+cd Viralrecall_3.0
+conda env create -n viralrecall -f environment.yaml
+conda activate viralrecall
+pip install --no-build-isolation --no-deps .
+
+```
+
+This will install a viralrecall and set up the dependencies in a conda environment called `viralrecall`. You can change the environment name by specifying the name of environment with the `-n` flag.
 
 ## Database Download
 
-`cd ViralRecall_3.0
-python download_database.py -d < Directory to put the database >`
+``` bash
+viralrecall_database  
+```
+
+The `-d` flag can be used to specify the download directory and `-o` can be used to set the directory name.
 
 This will automatically download and set up the database directory.
 
 Or if you want to run it manually, you can do the following steps:
 
-`cd ViralRecall_3.0
+```bash
 wget https://zenodo.org/records/17859729/files/hmm.tar.gz
-tar -xvzf hmm.tar.gz`
+tar -xvzf hmm.tar.gz
+```
 
 ## Basic Usage
 
-Navigate to the viralrecall directory and run:
-You need to provide the path to viralrecall.py script, the input file or directory containing genome files in fasta format ending with .fa, .fna, or .fasta, name of the output directory, and path to the database directory. If the input is a directory containing multiple fasta files, the tool runs in batch mode and processes all of them in parallel. The number of cores used can be controlled by the -c or --cpu flag. Default is to use all cores.
+```bash
+viralrecall -i < path to input file or directory > -o < output directory > -d < Path to database directory >
+```
 
-`< Path to viralrecall.py > -i < path to input file or directory > -o < output directory > -d < Path to database directory >`
+The input can be a genome file in fasta format or a directory containing genome files fasta format. The tool can recognize if it's a directory and run in batch mode to process all the file in parallel. By default, viralrecall uses all cpu cores available but the number of cores can be specified by the `-c` flag.
