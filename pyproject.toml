@@ -7,7 +7,7 @@ authors = [
     {name = "Abdeali M. Jivaji", email = "abdeali@vt.edu"},
     {name = "Frank O. Aylward", email = "faylward@vt.edu"}
 ]
-license = "CC-BY-NC-4.0"
+license = "MIT"
 license-files = ["LICENSE"]
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
@@ -18,7 +18,7 @@ dependencies = [
     "pandas==2.2.*",
     "progressbar==2.5",
     "requests==2.32.*",
-    "matplotlib == 3.10.*"
+    "matplotlib-base == 3.10.*"
 ]
 keywords = ["giant virus", "virus", "genomics", "viralrecall"]
 [dependency-groups]
