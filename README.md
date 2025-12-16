@@ -9,11 +9,25 @@ We also include a small set of HMMs to detect key Mirusvirus hallmark proteins t
 
 ## Installation
 
-NOTE: We are trying to get a conda package out soon
+### Install via conda (Recommended)
 
-### Source Installation
+The tool is available as a conda package through the bioconda channel which also install all the dependencies. To install it, please run:
 
-You can download Viralrecall v3.0 by running
+``` bash
+conda create -n viralrecall -c bioconda viralrecall
+```
+
+This will create an environment named viralrecall and install the package with all it's dependencies. You can specify the name of the environment by changing the name after the `-n` flag. If you already have an environment, you can simply run:
+
+``` bash
+conda install -c bioconda viralrecall
+```
+
+The `-c bioconda` flag specifies the channel to use, i.e. bioconda through which the package is made available.
+
+### Install from source
+
+Source installation may be preferable if you want to obtain the latest version of viralrecall as the conda package may not always be the most up-to-date. You can download Viralrecall v3.0 by running
 
 ``` bash
 
