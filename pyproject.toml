@@ -18,7 +18,7 @@ dependencies = [
     "pandas==2.2.*",
     "progressbar==2.5",
     "requests==2.32.*",
-    "matplotlib-base == 3.10.*"
+    "matplotlib == 3.10.*"
 ]
 keywords = ["giant virus", "virus", "genomics", "viralrecall"]
 [dependency-groups]
