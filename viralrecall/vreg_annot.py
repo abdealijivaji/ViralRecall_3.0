@@ -24,16 +24,12 @@ def above_threshold_ind(rollscore : pd.Series, minscore : int) -> pd.Series:
 	bool_array : pd.Series = rollscore > minscore
 	return bool_array
 
-def contiguous_true_ranges_numpy(bool_array : pd.Series) -> list[tuple[int, int]]:
-	data = np.array(bool_array)
-	edges = np.diff(bool_array.astype(int))
-	starts = np.where(edges == 1)[0] + 1
-	ends = np.where(edges == -1)[0]
-	if data[0]:
-		starts = np.insert(starts, 0, 0)
-	if data[-1]:
-		ends = np.append(ends, len(data) - 1)
-	return list(zip(starts, ends))
+def contiguous_true_ranges(bool_array : pd.Series) -> list[tuple[int, int]]:
+	s = bool_array
+	s1 = s != s.shift()
+	starts = s & s1
+	ends = s & (~s).shift(-1, fill_value=True)
+	return list(zip(starts[starts].index, ends[ends].index))
 
 
 def extract_reg(window : int, phagesize : int, 
@@ -44,7 +40,7 @@ def extract_reg(window : int, phagesize : int,
 		name = str(name)
 		above_threshold = above_threshold_ind(grp['rollscore'], minscore)
 		
-		viral_ranges = contiguous_true_ranges_numpy(above_threshold)
+		viral_ranges = contiguous_true_ranges(above_threshold)
 
 		strt_idx = viral_ranges[0][0]  # start of the first group
 		vstart = grp['pstart'].astype('int64')[strt_idx]  # start position of the first group
