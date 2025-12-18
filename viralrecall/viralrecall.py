@@ -17,7 +17,7 @@ __version__ = 3.0
 def parse_args(argv=None) :
 	
 	args_parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='viralrecall', add_help=False,
-									   description=f"Viralrecall: A command-line tool for predicting NCLDV-like regions in genomic data \nFrank O. Aylward, Virginia Tech Department of Biological Sciences <faylward at vt dot edu>", 
+									   description=f"Viralrecall: A command-line tool for predicting NCLDV-like regions in genomic data \nAbdeali (Ali) M. Jivaji, Virginia Tech Department of Biological Sciences <abdeali@vt.edu>", 
 									   epilog='*******************************************************************\n\n*******************************************************************')
 	required = args_parser.add_argument_group('required arguments')
 	required.add_argument('-i', '--input', required=True, 
@@ -38,7 +38,7 @@ def parse_args(argv=None) :
 	optional.add_argument('-g', '--minhit', required=False, 
 						  default=int(4), help='minimum number of unique viral hits that each viral region must have to be reported (default=4)')
 	optional.add_argument('-c', '--cpus', required=False, 
-						  default=None, help='number of cpus to use for the HMMER3 search')
+						  default=None, help='number of cores to use in batch mode (default=all available cores)')
 	optional.add_argument('-h', '--help', action='help', 
 						  help='show this help message and exit')
 	optional.add_argument('-v', '--version', action='version', 
@@ -212,7 +212,6 @@ def main(argv=None):
 	existence = input.exists()
 	indir = input.is_dir()
 
-	cpus = mp_cpu(cpus)
 	if indir and existence:
 		if check_directory_permissions(input) == False :
 			print(f"Insufficient read/write permissions for {input} \nQuitting")
@@ -224,7 +223,8 @@ def main(argv=None):
 		except FileNotFoundError as f:
 			raise FileNotFoundError(f"Input Directory : {input}, does not contain fasta files. Quitting")
 		
-		print(f"Running ViralRecall in batch mode on {len(file_list)} files found in {input}")
+		cpus : int = mp_cpu(cpus)
+		print(f"Running ViralRecall in batch mode on {len(file_list)} files found in {input} and parallelizing across {cpus} cores")
 		arg_list : list[tuple]= []
 		for i in file_list:
 			# Remove suffix before creating directory

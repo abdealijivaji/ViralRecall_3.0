@@ -56,17 +56,20 @@ def mp_cpu(cpu : int | None) -> int :
 	if cpu == None :
 		return cpu_count()
 	else :
-		return cpu if cpu <= cpu_count() else cpu_count()
+		return int(cpu) if int(cpu) <= cpu_count() else cpu_count()
 	
 
 def find_db(database: Path) -> Path :
 	
 	file_list = ["gvog_mirus_cat.hmm", "NCLDV_markers.hmm", "gvog_annotation.tsv"]
 	
-	if not database.is_dir() :
-		raise FileNotFoundError(f"HMM database directory {database} not found. Please check the database path.")
+	if database.is_file() and all((database.parent / i).is_file() for i in file_list) :
+			print(f"Note: Using {database.parent} as database.\nFor future runs, please provide the database directory and not individual files.")
+			return database.parent
+	elif not database.is_dir() :
+		raise NotADirectoryError(f"{database} is not a directory. Please check the database path.")
 	elif not all((database / i).is_file() for i in file_list) :
-		raise FileNotFoundError(f"HMM database files not found in {database}. Please check the database path.")
+		raise FileNotFoundError(f"{database} has missing files. Please check the database path or redownload using viralrecall_database script.")
 	return database
 	
 	
