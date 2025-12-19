@@ -1,11 +1,4 @@
 .vscode/launch.json
 .DS_Store
 .vscode/settings.json
-viralrecall/__pycache__/__init__.cpython-313.pyc
-viralrecall/__pycache__/log.cpython-313.pyc
-viralrecall/__pycache__/proteins.cpython-313.pyc
-
-viralrecall/__pycache__/utils.cpython-313.pyc
-viralrecall/__pycache__/vreg_annot.cpython-313.pyc
-viralrecall/__pycache__/viralrecall.cpython-313.pyc
-viralrecall/__pycache__/plot_vreg.cpython-313.pyc
+viralrecall/__pycache__/

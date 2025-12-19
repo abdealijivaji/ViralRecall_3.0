@@ -62,9 +62,10 @@ def main() :
     download_file(dbsrc, db_file)
 
     if not db_dir.is_dir() :
-        shutil.unpack_archive(db_file, out_dir)
+        shutil.unpack_archive(db_file, out_dir, format='gztar')
         print("Finished unpacking")
     os.remove(db_file)
+    os.rename(out_dir / 'hmm', db_dir)
     print(f"Preparing HMM database: {db_dir}")
     prep_hmm(db_dir)
 

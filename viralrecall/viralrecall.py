@@ -77,10 +77,6 @@ def run_program(input : Path,
 		" Not proceeding with the genome. Change phagesize parameter to a smaller value if needed.")
 		return
 
-	vir_summary = []
-	Summary = namedtuple("Summary", ["file", "contig", "contig_length", "num_viral_region", 
-								  "vstart", "vend", "vir_length", "num_prots", "num_viral_hits", 
-								  "score", "NCLDV_markers", "Mirusvirus_hits"])
 	
 	proteins, description = predict_proteins(genome_file, filt_contig_list, out_base)
 	
@@ -95,8 +91,9 @@ def run_program(input : Path,
 	hmmout = out_base.with_suffix(".hmmout")
 	hmm_df = pd.DataFrame(hmm_results) #namedtuples perfectly compatible with pandas dataframe
 	
-	ncldv_hmm_results = search_with_pyhmmer(proteins, ncldv_hmm, evalue)
-	ncldv_hmm_df = pd.DataFrame(parse_hmmer(ncldv_hmm_results, out_base))
+	ncldv_hits = search_with_pyhmmer(proteins, ncldv_hmm, evalue)
+	ncldv_hmm_results = parse_hmmer(ncldv_hits, out_base)
+	ncldv_hmm_df = pd.DataFrame(ncldv_hmm_results, columns= ["contig", "query", "HMM_hit", "bitscore", "evalue"])
 	
 	# keep only top hits for each protein
 	best_hits = hmm_df.sort_values(by = ["query", "bitscore" ], ascending=False).groupby(['contig', 'query']).nth(0).reset_index(drop=True)
@@ -113,6 +110,11 @@ def run_program(input : Path,
 	df['rollscore'] = sliding_window_mean(df, offset)
 	df = merge_annot(df, database)
 
+	vir_summary = []
+	Summary = namedtuple("Summary", ["file", "contig", "contig_length", "num_viral_region", 
+								  "vstart", "vend", "vir_length", "num_prots", "num_viral_hits", 
+								  "score", "NCLDV_markers", "Mirusvirus_hits"])
+	
 	viral_indices = extract_reg(window, phagesize, minscore, filt_contig_list, df, minhit)
 	viral_coords = {}
 	viral_df = pd.DataFrame()
@@ -134,16 +136,17 @@ def run_program(input : Path,
 				vreg_head : str = genome_file[key][vstart:vend].fancy_name # type: ignore
 				vreg_seq : str = genome_file[key][vstart:vend].seq # type: ignore
 				vreg_nuc_file = out_base.parent / f"{key}_vregion_{idx}.fna"
-
-				NCLDV_hits = str_hits(ncldv_hmm_df['HMM_hit'], "NCLDV_")
-				mirus_hits = str_hits(vregion_df['HMM_hit'], "Mirus_")
+				
+				vprots = ncldv_hmm_df.loc[ncldv_hmm_df['query'].isin(vregion_df['query'])]['HMM_hit']
+				NCLDV_hits = str_hits(vprots, "NCLDV")
+				mirus_hits = str_hits(vregion_df['HMM_hit'], "Mirus")
 
 				with open(vreg_nuc_file, "w") as out:
 					out.write(">" + vreg_head + "\n")
 					out.write(vreg_seq)
 				vir_summary.append(Summary(file=input.name,
 							   contig=key,
-							   contig_length= len(genome_file[key][:].seq), # type: ignore
+							   contig_length= len(genome_file[key]), # type: ignore
 							   num_viral_region= f"vregion_{idx}",
 							   vstart= vstart,
 							   vend= vend,
@@ -159,7 +162,7 @@ def run_program(input : Path,
 		else:
 			vir_summary.append(Summary(file=input.name,
 							   contig=key,
-							   contig_length= len(genome_file[key][:].seq), # type: ignore
+							   contig_length= len(genome_file[key]), # type: ignore
 							   num_viral_region= "no viral regions detected",
 							   vstart= "NA",
 							   vend= "NA",
@@ -167,19 +170,24 @@ def run_program(input : Path,
 							   num_prots= "NA",
 							   num_viral_hits= "NA",
 							   score= str(0),
-							   NCLDV_markers= "NA",
-							   Mirusvirus_hits= "NA")
+							   NCLDV_markers= str_hits(ncldv_hmm_df[ncldv_hmm_df['query'] == key]['HMM_hit'], "NCLDV"),
+							   Mirusvirus_hits= str_hits(df[df["query"] == key ]['HMM_hit'], "Mirus")
+)
 							   )
 			
 	summ_file = Path(str(out_base) + "_summary.tsv")
 	summ_df = pd.DataFrame(vir_summary)
 	vannot = Path(str(out_base) + "_viralregions.annot.tsv")
-	
+	ncldv_mark_file = Path(str(out_base) + "_NCLDV_markers.tsv")
+
+
 	summ_df.to_csv(summ_file, index=False, sep= "\t")
 	viral_df.to_csv(vannot, index=False, sep= "\t")
 	hmm_df.to_csv(hmmout, index=False, sep= "\t")
 	df.to_csv(out_base.with_suffix(".tsv"), index=False, sep="\t")
-	
+	ncldv_hmm_df.to_csv(ncldv_mark_file, index=False, sep= "\t")
+
+
 	logger.info(f"Creating plots")
 	plot_vreg(df, minscore, viral_coords, out_base)
 
