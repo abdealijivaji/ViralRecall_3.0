@@ -1,15 +1,23 @@
 # Viralrecall v3.0
 
-Written by Abdeali Jivaji, PhD Candidate in Aylward Lab, and Dr. Frank Aylward, Assoc. Professor, Dept. of Biological Sciences, Virginia Tech. Please submit issues in the Github issues or email Abdeali <abdeali@vt.edu> or Dr. Aylward <faylward@vt.edu>
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/version.svg)](https://anaconda.org/bioconda/viralrecall)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/downloads.svg)](https://anaconda.org/bioconda/viralrecall)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/platforms.svg)](https://anaconda.org/bioconda/viralrecall)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/license.svg)](https://anaconda.org/bioconda/viralrecall)
+
+Written by Abdeali Jivaji, PhD Candidate in Aylward Lab with the help of Dr. Frank Aylward, Assoc. Professor, Dept. of Biological Sciences, Virginia Tech. Please submit issues in [Github Issues Tracker](https://github.com/abdealijivaji/ViralRecall_3.0/issues) or email Abdeali <abdeali@vt.edu>
 
 ## Introduction
 
 Viralrecall is a python tool to primarily identify Giant Endogenous Viral Elements (GEVEs) integrated in the genome of eukaryotes. The current version is an update on the original tool by Dr. Aylward and uses the same GVOG HMM database to detect signatures of giant viruses. The key motivation for updating Viralrecall was to make it more efficient at processing the larger euykaryotic genomes that are being published with the rise in popularity of long-read sequencing.
+
 We also include a small set of HMMs to detect key Mirusvirus hallmark proteins to aid in the detection of Mirusviruses. However, this feature is still in it's early stages and any detection of Mirusvirus proteins should be independently and manually verified by the user.
+
+The old version of the tool written and hosted by Dr. Frank Aylward is deprecated but still available if needed on [github](https://github.com/faylward/viralrecall).
 
 ## Installation
 
-### Install via conda (Recommended)
+### Install via conda (**Recommended**)
 
 The tool is available as a conda package through the bioconda channel which also install all the dependencies. To install it, please run:
 
@@ -49,15 +57,17 @@ This will install a viralrecall and set up the dependencies in a conda environme
 
 ## Database Download
 
+The database used to predict viral regions is uploaded on a [Zenodo repository](https://zenodo.org/records/17859729) and can be downloaded by the following methods:
+
+* Either by running the installed tool to download and set up the hmm database directory
+
 ``` bash
 viralrecall_database  
 ```
 
-The `-d` flag can be used to specify the download directory and `-n` can be used to set the directory name.
+The `-d` flag can be used to specify the download directory (default: current working directory) and `-n` can be used to set the directory name. Use `-h` to show help menu.
 
-This will automatically download and set up the database directory.
-
-Or if you want to run it manually, you can do the following steps:
+* Or if you want to run it manually, you can do the following steps:
 
 ```bash
 wget https://zenodo.org/records/17859729/files/hmm.tar.gz
@@ -71,3 +81,58 @@ viralrecall -i < path to input file or directory > -o < output directory > -d < 
 ```
 
 The input can be a genome file in fasta format or a directory containing genome files fasta format. The tool can recognize if it's a directory and run in batch mode to process all the file in parallel. By default, viralrecall uses all cpu cores available but the number of cores can be specified by the `-c` flag.
+
+## Detailed Usage
+
+Mandatory Flags to provide:
+
+| Flag | Default | Description |
+| ---- | ------- | ----------- |
+| -i (--input) | - | Input Fasta file or directory of fasta files (ending in .fna, .fasta, or .fa) |
+| -o (--outdir) | - | Output directory name. Will be created if does not exist |
+| -d (--database) | - | Database directory name, e.g. ~/hmm (to download the database, run `viralrecall_database`) |
+
+Optional flags:
+
+| Flag | Default | Description |
+| -------- | ------- | ----------- |
+| -h (--help) | - | Show help menu and exit |
+| -w (--window) | 15 | Sliding window size (in kb) to use for finding viral regions |
+| -m (--minsize) | 10 | Minimum contig size (in kb) to search for viral regions. Contigs below this size are ignored entirely |
+| -s (--minscore) | 10 | Minimum rolling average threshold score of protein hits to GVOGs to demarcate viral regions |
+| -e (--evalue) | 1e-10 | E-value threshold passed to pyHMMer for searching proteins against the GVOG database |
+| -g (--minhit) | 4 | Number of unique GVOG hits in a putative viral region to include it in results |
+| -c (--cpus) | ALL | Number of cores to use. Only applicable when passing a directory of genomes. It signifies number of genomes to process in parallel. Default is to use all cores available |
+| -v (version) | - | Viralrecall version |
+
+If there are no predicted viral regions in the first pass after basic usage with default parameters, users can change various parameters to increase or decrease stringency in predicting viral regions.
+
+## Outputs
+
+The viralrecall output is deposited in the output directory specified by `-o` flag with the file prefix being the name of the input file. In batch mode (input is a directory), the outputs are deposited in a directory with the same name as the input file (without suffix). By default, only contigs larger than the `-m --minsize` flag are processed (default: larger than 10 kb).
+
+1. pyrodigal predictions: The predicted proteins are output with the .faa suffix. The coding sequence (nucleotides) are output with the .cds.fasta suffix. The output also contains the predictions in gff and genbank (.gbk) format. Pyrodigal improves on the prodigal tool by [outputting the full genbank format](https://pyrodigal.readthedocs.io/en/stable/guide/outputs.html#genbank) rather than the incomplete format by prodigal. In a future update, we will try to include the gene annotations in the genbank file to aid compatibilty with genome visualization software.
+
+2. HMMsearch output: The hmmsearch predictions by pyHMMer are deposited in a .hmmout file with the contig, protein, HMM hit, bitsocre, and evalue columns. In the future, we plan to include the raw hmm output as some users might find it more informative. For now, the output is filtered to only report the best hit for each protein.
+
+3. Full Annotation table: We also output the full annotation table ending with .tsv for all contigs and all predicted proteins filtered to only report best hits for each protein. This table can be informative for users who want to dive deeper into the protein annotations as there is a column in the table denoting the NCVOG descriptions for each GVOG.
+
+4. Viral region specific outputs: If the tool predicts a viral region/s in the contig/genome, the output includes the subsetted nucleotide region from the genome for the length of the predicted region. The output prefix contains the contig and the ordered number of the region on the congtig. e.g. if the contig contains 2 predicted viral regions on contig XYZ, the output contains two files titled "XYZ_vregion_1.fna" and "XYZ_vregion_2.fna" with the contig header contains "XYZ:start-end" where start and end are the positions of the predicted viral region. It also outputs a subsetted annotation table with suffix "_viralregions.annot.tsv" containing only protein rows that fall inside the viral region. The output also contains a plots.pdf file which contains plots of contig length vs score for each contig containing a viral region prediction. If no viral regions are predicted, these outputs will not be generated.
+
+5. Log file: We ouput a log file which contains extra informtion that might be useful to some users specifying package versions and other useful information.
+
+## Issues & Feedback
+
+We welcome feedback from users on any issues/bugs/improvements. Please submit them on the [Github Issues Tracker](https://github.com/abdealijivaji/ViralRecall_3.0/issues) with any appropriate tags if possible. Additionally, you can email them to me at <abdeali@vt.edu>. We would love to hear from you as the tool is meant to be a easy-to-use and efficient replacement of the widely used previous version written by Dr. Aylward.
+
+For contributing to Viralrecall, please feel free to submit any pull requests you may have for me to review.
+
+## Citation
+
+We are working on publishing a small report to make it easier for users to cite this tool. Stay tuned.
+
+## License
+
+This tool is provided under the MIT License. The Viralrecall_3.0 code was written by Abdeali M. Jivaji and is distributed under the terms of the MIT License as well. See LICENSE for more information.
+
+This project is in no way not affiliated, sponsored, or otherwise endorsed by the original Viralrecall authors. It was developed by Abdeali M. Jivaji during his PhD project at Dept. of Biological Sciences, Virginia Tech in the Aylward Lab.
