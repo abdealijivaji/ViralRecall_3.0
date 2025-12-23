@@ -1,5 +1,7 @@
 # Viralrecall v3.0
 
+<img src="viralrecall_logo.png" alt="logo for viralrecall" width="300" height="208"/>
+
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/version.svg)](https://anaconda.org/bioconda/viralrecall)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/downloads.svg)](https://anaconda.org/bioconda/viralrecall)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/platforms.svg)](https://anaconda.org/bioconda/viralrecall)
