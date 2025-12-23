@@ -1,11 +1,11 @@
 # Viralrecall v3.0
 
-<img src="viralrecall_logo.png" alt="logo for viralrecall" width="300" height="208"/>
-
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/version.svg)](https://anaconda.org/bioconda/viralrecall)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/downloads.svg)](https://anaconda.org/bioconda/viralrecall)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/platforms.svg)](https://anaconda.org/bioconda/viralrecall)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/viralrecall/badges/license.svg)](https://anaconda.org/bioconda/viralrecall)
+
+<img src="viralrecall_logo.png" alt="logo for viralrecall" width="300" height="208"/>
 
 Written by Abdeali Jivaji, PhD Candidate in Aylward Lab with the help of Dr. Frank Aylward, Assoc. Professor, Dept. of Biological Sciences, Virginia Tech. Please submit issues in [Github Issues Tracker](https://github.com/abdealijivaji/ViralRecall_3.0/issues) or email Abdeali <abdeali@vt.edu>
 
