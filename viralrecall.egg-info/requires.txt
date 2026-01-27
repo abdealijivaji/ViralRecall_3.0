@@ -6,3 +6,4 @@ pandas==2.2.*
 progressbar==2.5
 requests==2.32.*
 matplotlib==3.10.*
+biopython==1.75.*
