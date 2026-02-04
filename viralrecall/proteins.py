@@ -84,7 +84,7 @@ def parse_hmmer(hits, out_base: Path) -> list[tuple]:
 				eval = "%.3g" % hit.evalue
 				results.append(Result(
 					Contig ,
-					hit.name.decode() ,
+					hit.name.decode() , # .decode() not needed from pyhmmer 0.12 onwards
 					hitlist.query.name.decode(),
 					round(hit.score, 2),
 					eval
