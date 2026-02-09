@@ -9,7 +9,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy==2.2.*
-Requires-Dist: pyhmmer<0.12.0,>=0.11.3
+Requires-Dist: pyhmmer>=0.11.3
 Requires-Dist: pyrodigal-gv==0.3.*
 Requires-Dist: pyfaidx==0.9.0
 Requires-Dist: pandas==2.2.*

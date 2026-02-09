@@ -80,11 +80,12 @@ def parse_hmmer(hits, out_base: Path) -> list[tuple]:
 		# hitlist.write(outfile, header=True) 
 		for hit in hitlist:
 			if hit.included:
-				Contig =  hit.name.decode().rsplit("_", maxsplit=1)[0]
+				hmm_hit = hit.name.decode() if hasattr(hit.name, "decode") else hit.name
+				Contig =  hmm_hit.rsplit("_", maxsplit=1)[0]
 				eval = "%.3g" % hit.evalue
 				results.append(Result(
 					Contig ,
-					hit.name.decode() , # .decode() not needed from pyhmmer 0.12 onwards
+					hmm_hit,
 					hitlist.query.name.decode(),
 					round(hit.score, 2),
 					eval
