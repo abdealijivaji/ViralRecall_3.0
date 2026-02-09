@@ -82,11 +82,12 @@ def parse_hmmer(hits, out_base: Path) -> list[tuple]:
 			if hit.included:
 				hmm_hit = hit.name.decode() if hasattr(hit.name, "decode") else hit.name
 				Contig =  hmm_hit.rsplit("_", maxsplit=1)[0]
+				hitlist_name = hitlist.query.name.decode() if hasattr(hitlist.query.name, "decode") else hitlist.query.name
 				eval = "%.3g" % hit.evalue
 				results.append(Result(
 					Contig ,
 					hmm_hit,
-					hitlist.query.name.decode(),
+					hitlist_name,
 					round(hit.score, 2),
 					eval
 				))

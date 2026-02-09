@@ -5,7 +5,7 @@ Summary: Tool to identify giant viruses integrated into eukaryotic genomes
 Author-email: "Abdeali M. Jivaji" <abdeali@vt.edu>, "Frank O. Aylward" <faylward@vt.edu>
 License-Expression: MIT
 Keywords: giant virus,virus,genomics,viralrecall
-Requires-Python: >=3.10
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy==2.2.*
